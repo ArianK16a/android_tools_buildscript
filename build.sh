@@ -20,11 +20,10 @@ telegram () {
 prepare () {
   cd $LOCAL_PATH
   source build/envsetup.sh
-  # Disable CCache, since the compile times don't matter
-  # much here and we want to support 17.1 and 18.1 builds
-  #export CCACHE_EXEC=$(which ccache)
-  #export USE_CCACHE=1
-  #ccache -M 100G
+  export CCACHE_EXEC=$(command -v ccache)
+  export CCACHE_DIR=$(pwd)/.ccache
+  export USE_CCACHE=1
+  ccache -M 20G
   if [ -f $LOCAL_PATH/.last_build_time ]; then
     rm $LOCAL_PATH/.last_build_time
   fi
