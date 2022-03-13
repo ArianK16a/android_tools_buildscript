@@ -11,6 +11,7 @@ if [ "$DEBUG_BUILD" = 1 ]; then
   signed=0
 else
   signed=1
+  DEBUG_BUILD=0
 fi
 
 telegram () {
@@ -89,7 +90,7 @@ build () {
       extra_arguments="-c -1001656828188"
     fi
     telegram $extra_arguments "Compilation for "$1" failed!"
-    exit -1
+    #exit -1
   fi
 }
 
