@@ -64,9 +64,9 @@ build () {
   build_start=$(date +"%s")
   if [ "$signed" = 1 ]; then
     breakfast "$1"
-    systemd-inhibit mka target-files-package otatools
+    mka target-files-package otatools
   else
-    systemd-inhibit brunch "$1"
+    brunch "$1"
   fi
   build_result "$1" "$2"
   if [ -f ${LOCAL_PATH}/.last_build_time ] && ([[ $(ls $OUT/obj/PACKAGING/target_files_intermediates/*-target_files-*.zip) ]] || [[ $(ls "$OUT"/lineage-*-"$1".zip) ]]); then
