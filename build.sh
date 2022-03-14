@@ -100,15 +100,17 @@ build () {
       upload ${device} ${2}
     fi
   else
-    extra_arguments=""
-    if [[ ${device} == "davinci" ]]; then
-      extra_arguments="-c -1001426238293"
-    elif [[ ${device} == "toco" ]]; then
-      extra_arguments="-c -1001443889354"
-    elif [[ ${device} == "violet" ]]; then
-      extra_arguments="-c -1001656828188"
+    if [[ ${DEBUG_BUILD} == 0 ]]; then
+      extra_arguments=""
+      if [[ ${device} == "davinci" ]]; then
+        extra_arguments="-c -1001426238293"
+      elif [[ ${device} == "toco" ]]; then
+        extra_arguments="-c -1001443889354"
+      elif [[ ${device} == "violet" ]]; then
+        extra_arguments="-c -1001656828188"
+      fi
+      telegram $extra_arguments "Compilation for "$1" failed!"
     fi
-    telegram $extra_arguments "Compilation for "$1" failed!"
     return -1
   fi
 }
