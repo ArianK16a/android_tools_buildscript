@@ -169,6 +169,14 @@ upload () {
 
   project="$(basename ${LOCAL_PATH})"
 
+  # Make sure the directories exist
+  {
+    echo 'mkdir /home/frs/project/ephedraceae/'${device}'/'
+    echo 'mkdir /home/frs/project/ephedraceae/'${device}'/'${project}'/'
+    echo 'mkdir /home/frs/project/ephedraceae/'${device}'/images/'
+    echo 'mkdir /home/frs/project/ephedraceae/'${device}'/images/'${project}'/'
+  } | sftp ariank16a@frs.sourceforge.net
+
   rsync -Ph out/target/product/"${device}"/lineage-*-"${device}".zip ariank16a@frs.sourceforge.net:/home/frs/project/ephedraceae/"${device}"/"${project}"/
   rsync -Ph out/target/product/"${device}"/lineage-*-"${device}".zip.sha256sum ariank16a@frs.sourceforge.net:/home/frs/project/ephedraceae/"${device}"/"${project}"/
 
