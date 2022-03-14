@@ -236,7 +236,7 @@ release () {
   telegram ${extra_arguments} -M " \
 *New LineageOS ${lineage_version} build for ${model} available! *
 
-📅 Build date: \'$(date +\'%Y-%m-%d\')\'
+📅 Build date: \`$(date +\'%Y-%m-%d\')\`
 🛡️ Security patch: \`${security_patch}\`
 💬 Variant: \`${type}\`
 
