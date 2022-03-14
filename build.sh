@@ -175,7 +175,7 @@ upload () {
   img_version=$(cat "${OUT}"/system/build.prop | grep ro.lineage.version=)
   img_version="${img_version#*=}"
   img_version=lineage-"${img_version}"
-  for partition in {boot, dlkm, dtbo, recovery, vendor_boot}; do
+  for partition in {boot dlkm dtbo recovery vendor_boot}; do
     if [[ -f out/target/product/"${device}"/${img_version}-${partition}.img ]]; then
       rsync -Ph out/target/product/"${device}"/${img_version}-${partition}.img ariank16a@frs.sourceforge.net:/home/frs/project/ephedraceae/"${device}"/images/"${project}"/
     fi
