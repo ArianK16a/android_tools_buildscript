@@ -8,9 +8,9 @@
 LOCAL_PATH="$(pwd)"
 
 if [ "${DEBUG_BUILD}" = 1 ]; then
-  signed=0
+  SIGNED=0
 else
-  signed=1
+  SIGNED=1
   DEBUG_BUILD=0
 fi
 
@@ -63,7 +63,7 @@ build () {
   fi
   telegram -N -M "*(i)* \`"$(basename ${LOCAL_PATH})"\` compilation for \`${device}\` *started* on ${HOSTNAME}."
   build_start=$(date +"%s")
-  if [[ ${signed} = 1 ]]; then
+  if [[ ${SIGNED} = 1 ]]; then
     breakfast ${device}
     mka target-files-package otatools
   else
@@ -71,7 +71,7 @@ build () {
   fi
   build_result ${device} ${2}
   if [[ -f ${LOCAL_PATH}/.last_build_time ]] && ([[ $(ls ${OUT}/obj/PACKAGING/target_files_intermediates/*-target_files-*.zip) ]] || [[ $(ls "${OUT}"/lineage-*-"${device}".zip) ]]); then
-    if [[ ${signed} = 1 ]]; then
+    if [[ ${SIGNED} = 1 ]]; then
       sign_target_files
     fi
 
@@ -83,15 +83,15 @@ build () {
     has_ab_partitions="${has_ab_partitions#*=}"
     if [[ ${has_ab_partitions} ]]; then
       for partition in {boot, dlkm, dtbo, vendor_boot}; do
-        if [[ ${signed} = 1 ]]; then
-          unzip -p ${OUT}/signed-target_files-"${filename}" IMAGES/"${partition}".img > ${OUT}/${img_version}-${partition}.img
+        if [[ ${SIGNED} = 1 ]]; then
+          unzip -p ${OUT}/SIGNED-target_files-"${filename}" IMAGES/"${partition}".img > ${OUT}/${img_version}-${partition}.img
         else
           cp ${OUT}/${partition}.img ${OUT}/${img_version}-${partition}.img
         fi
       done
     else
-      if [[ ${signed} = 1 ]]; then
-        unzip -p ${OUT}/signed-target_files-"${filename}" IMAGES/recovery.img > ${OUT}/${img_version}-recovery.img
+      if [[ ${SIGNED} = 1 ]]; then
+        unzip -p ${OUT}/SIGNED-target_files-"${filename}" IMAGES/recovery.img > ${OUT}/${img_version}-recovery.img
       else
         cp ${OUT}/recovery.img ${OUT}/${img_version}-recovery.img
       fi
@@ -145,11 +145,11 @@ sign_target_files () {
 
   ./out/soong/host/linux-x86/bin/sign_target_files_apks -o -d ~/.android-certs \
     ${OUT}/obj/PACKAGING/target_files_intermediates/*-target_files-*.zip \
-    ${OUT}/signed-target_files-"${filename}"
+    ${OUT}/SIGNED-target_files-"${filename}"
 
   ./out/soong/host/linux-x86/bin/ota_from_target_files -k ~/.android-certs/releasekey \
     --block --backup=true \
-    ${OUT}/signed-target_files-"${filename}" \
+    ${OUT}/SIGNED-target_files-"${filename}" \
     ${OUT}/"$filename"
 
   checksum=$(sha256sum "${OUT}"/"${filename}" | awk '{print $1}')
