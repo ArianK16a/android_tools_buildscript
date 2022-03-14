@@ -269,7 +269,25 @@ update_ota () {
   git clone git@github.com:arian-ota/ota.git -b "${project}"
   cd "${LOCAL_PATH}"/ota
 
-  jq '.response += [{
+  if [[ $(jq 'has("response")' "${device}".json &> /dev/null) ]]; then
+    echo "Appending OTA to existing json"
+    jq '.response += [{
+          datetime: '${datetime}',
+          filename: "'${filename}'",
+          id: "'${id}'",
+          romtype: "'${romtype}'",
+          size: '${size}',
+          url: "'${url}'",
+          version: "'${version}'"
+        }]' "${device}".json | sponge "${device}".json
+
+    # Only keep the last three builds in Updater
+    while [[ $(jq '.response | length' TP1803.json) > 3 ]]; do
+      jq 'del(.response[0])' "${device}".json | sponge "${device}".json
+    done
+  else
+    echo "Creating new OTA json"
+    jq -n '{"response": [{
         datetime: '${datetime}',
         filename: "'${filename}'",
         id: "'${id}'",
@@ -277,19 +295,15 @@ update_ota () {
         size: '${size}',
         url: "'${url}'",
         version: "'${version}'"
-      }]' "${device}".json | sponge "${device}".json
-
-  # Only keep the last three builds in Updater
-  while [[ $(jq '.response | length' test.json) > 3 ]]; do
-    jq 'del(.response[0])' "${device}".json | sponge "${device}".json
-  done
+      }]}' > "${device}".json
+  fi
 
   git add "${device}".json
   git commit -m "${device}: OTA update $(date +\'%Y-%m-%d\')"
-  git push git@github.com:arian-ota/ota.git HEAD:"$2"
+  git push git@github.com:arian-ota/ota.git HEAD:"${project}"
   cd ${LOCAL_PATH}
 
-  update_changelog $1 $2
+  update_changelog $1 ${project}
 }
 
 # update_changelog device gms
