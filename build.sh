@@ -109,7 +109,7 @@ build () {
       extra_arguments="-c -1001656828188"
     fi
     telegram $extra_arguments "Compilation for "$1" failed!"
-    #exit -1
+    return -1
   fi
 }
 
