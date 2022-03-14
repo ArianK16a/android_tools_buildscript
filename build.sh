@@ -7,7 +7,7 @@
 
 LOCAL_PATH="$(pwd)"
 
-if [ "${DEBUG_BUILD}" = 1 ]; then
+if [ "${DEBUG_BUILD}" == 1 ]; then
   SIGNED=0
 else
   SIGNED=1
@@ -47,23 +47,23 @@ build () {
   device=${1}
   prepare
   if [[ ${DEBUG_BUILD} == 0 ]]; then
-    repo sync --force-sync -q
+    repo sync -j12 --detach --no-clone-bundle --fail-fast --current-branch --force-sync
     bash "${LOCAL_PATH}"/picks.sh
   fi
-  if [[ ${2} = "gms" ]]; then
+  if [[ ${2} == "gms" ]]; then
     prepare_gms
   else
     prepare_vanilla
   fi
   breakfast ${device}
-  if [[ ${DEBUG_BUILD} = 1 ]]; then
+  if [[ ${DEBUG_BUILD} == 1 ]]; then
     make installclean
   else
     make clean
   fi
   telegram -N -M "*(i)* \`"$(basename ${LOCAL_PATH})"\` compilation for \`${device}\` *started* on ${HOSTNAME}."
   build_start=$(date +"%s")
-  if [[ ${SIGNED} = 1 ]]; then
+  if [[ ${SIGNED} == 1 ]]; then
     breakfast ${device}
     mka target-files-package otatools
   else
@@ -71,7 +71,7 @@ build () {
   fi
   build_result ${device} ${2}
   if [[ -f ${LOCAL_PATH}/.last_build_time ]] && ([[ $(ls ${OUT}/obj/PACKAGING/target_files_intermediates/*-target_files-*.zip) ]] || [[ $(ls "${OUT}"/lineage-*-"${device}".zip) ]]); then
-    if [[ ${SIGNED} = 1 ]]; then
+    if [[ ${SIGNED} == 1 ]]; then
       sign_target_files
     fi
 
@@ -83,27 +83,29 @@ build () {
     has_ab_partitions="${has_ab_partitions#*=}"
     if [[ ${has_ab_partitions} ]]; then
       for partition in {boot, dlkm, dtbo, vendor_boot}; do
-        if [[ ${SIGNED} = 1 ]]; then
+        if [[ ${SIGNED} == 1 ]]; then
           unzip -p ${OUT}/SIGNED-target_files-"${filename}" IMAGES/"${partition}".img > ${OUT}/${img_version}-${partition}.img
         else
           cp ${OUT}/${partition}.img ${OUT}/${img_version}-${partition}.img
         fi
       done
     else
-      if [[ ${SIGNED} = 1 ]]; then
+      if [[ ${SIGNED} == 1 ]]; then
         unzip -p ${OUT}/SIGNED-target_files-"${filename}" IMAGES/recovery.img > ${OUT}/${img_version}-recovery.img
       else
         cp ${OUT}/recovery.img ${OUT}/${img_version}-recovery.img
       fi
     fi
-    upload ${device} ${2}
+    if [[ ${DEBUG_BUILD} == 0 ]]; then
+      upload ${device} ${2}
+    fi
   else
     extra_arguments=""
-    if [[ ${device} = "davinci" ]]; then
+    if [[ ${device} == "davinci" ]]; then
       extra_arguments="-c -1001426238293"
-    elif [[ ${device} = "toco" ]]; then
+    elif [[ ${device} == "toco" ]]; then
       extra_arguments="-c -1001443889354"
-    elif [[ ${device} = "violet" ]]; then
+    elif [[ ${device} == "violet" ]]; then
       extra_arguments="-c -1001656828188"
     fi
     telegram $extra_arguments "Compilation for "$1" failed!"
@@ -124,12 +126,12 @@ build_result () {
   build_end=$(date +"%s")
   diff=$((${build_end} - ${build_start}))
   time=$(convertsecs "${diff}")
-  if [[ ${2} = "gms" ]]; then
+  if [[ ${2} == "gms" ]]; then
     type="GMS"
   else
     type="VANILLA"
   fi
-  if [[ ${result} = "0" ]]; then
+  if [[ ${result} == "0" ]]; then
     echo ${time} > ${LOCAL_PATH}/.last_build_time
     message="completed successfully"
   else
@@ -159,7 +161,7 @@ sign_target_files () {
 # upload device gms
 upload () {
   device=${1}
-  if [[ ${device} = "" ]]; then
+  if [[ ${device} == "" ]]; then
     echo "specify a device"
   fi
 
@@ -177,7 +179,7 @@ upload () {
     fi
   done
 
-  if [[ ${DEBUG_BUILD} = 0 ]]; then
+  if [[ ${DEBUG_BUILD} == 0 ]]; then
     release ${device} ${project}
   fi
 }
@@ -187,7 +189,7 @@ release () {
   device=${1}
   project="$(basename ${LOCAL_PATH})"
 
-  if [[ ${2} = "gms" ]]; then
+  if [[ ${2} == "gms" ]]; then
     type="GMS"
   else
     type="VANILLA"
@@ -199,20 +201,20 @@ release () {
   checksum="$(cat "${LOCAL_PATH}"/out/target/product/"$1"/lineage-*-"$1".zip.sha256sum | awk '{print $1}')"
   checksum_link="$download_link".sha256sum
 
-  if [ "$2" = "gms" ]; then
+  if [ "$2" == "gms" ]; then
     device_variant="$1_gms"
   else
     device_variant="$1"
   fi
   changelog_link=https://raw.githubusercontent.com/arian-ota/changelog/"$project"/"$device_variant".txt
 
-  if [[ ${device} = "davinci" ]]; then
+  if [[ ${device} == "davinci" ]]; then
     group="@lineage\_davinci"
     extra_arguments="-c -1001426238293"
-  elif [[ ${device} = "toco" ]]; then
+  elif [[ ${device} == "toco" ]]; then
     group="@lineage\_toco"
     extra_arguments="-c -1001443889354"
-  elif [[ ${device} = "violet" ]]; then
+  elif [[ ${device} == "violet" ]]; then
     group="@LineageViolet"
     extra_arguments="-c -1001656828188"
   else
@@ -252,12 +254,12 @@ ${group}
 
 # update_ota device gms
 update_ota () {
-  if [[ ${1} = "" ]]; then
+  if [[ ${1} == "" ]]; then
     echo "specify a device"
     return -1
   fi
 
-  if [[ ${2} = "gms" ]]; then
+  if [[ ${2} == "gms" ]]; then
     device="${1}_gms"
   else
     device="${1}"
@@ -290,7 +292,7 @@ update_ota () {
   git clone git@github.com:arian-ota/ota.git -b "${project}"
   cd "${LOCAL_PATH}"/ota
 
-  if [[ $(jq 'has("response")' "${device}".json &> /dev/null) ]]; then
+  if [[ $(jq 'has("response")' "${device}".json 2> /dev/null) ]]; then
     echo "Appending OTA to existing json"
     jq '.response += [{
           datetime: '${datetime}',
@@ -303,7 +305,7 @@ update_ota () {
         }]' "${device}".json | sponge "${device}".json
 
     # Only keep the last three builds in Updater
-    while [[ $(jq '.response | length' TP1803.json) > 3 ]]; do
+    while [[ $(jq '.response | length' "${device}".json) > 3 ]]; do
       jq 'del(.response[0])' "${device}".json | sponge "${device}".json
     done
   else
@@ -329,12 +331,12 @@ update_ota () {
 
 # update_changelog device gms
 update_changelog () {
-  if [[ ${1} = "" ]]; then
+  if [[ ${1} == "" ]]; then
     echo "specify a device"
     return -1
   fi
 
-  if [[ ${2} = "gms" ]]; then
+  if [[ ${2} == "gms" ]]; then
     device="${1}_gms"
   else
     device="${1}"
