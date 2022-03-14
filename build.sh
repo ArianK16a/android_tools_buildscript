@@ -295,21 +295,31 @@ update_ota () {
   cd "${LOCAL_PATH}"/ota
 
   if [[ $(jq 'has("response")' "${device}".json 2> /dev/null) ]]; then
-    echo "Appending OTA to existing json"
-    jq '.response += [{
-          datetime: '${datetime}',
-          filename: "'${filename}'",
-          id: "'${id}'",
-          romtype: "'${romtype}'",
-          size: '${size}',
-          url: "'${url}'",
-          version: "'${version}'"
-        }]' "${device}".json | sponge "${device}".json
-
-    # Only keep the last three builds in Updater
-    while [[ $(jq '.response | length' "${device}".json) > 3 ]]; do
-      jq 'del(.response[0])' "${device}".json | sponge "${device}".json
+    append_ota=1
+    for (( i = 0; i < 3; i++ )); do
+      if [[ $(jq -r .response[${i}].id "${device}".json) == ${id} ]]; then
+        echo "OTA json already contains update with id ${id}"
+        append_ota=0
+        break
+      fi
     done
+    if [[ ${append_ota} == 1 ]]; then
+      echo "Appending OTA to existing json"
+      jq '.response += [{
+            datetime: '${datetime}',
+            filename: "'${filename}'",
+            id: "'${id}'",
+            romtype: "'${romtype}'",
+            size: '${size}',
+            url: "'${url}'",
+            version: "'${version}'"
+          }]' "${device}".json | sponge "${device}".json
+
+      # Trim the list of builds in Updater
+      while [[ $(jq '.response | length' "${device}".json) > 3 ]]; do
+        jq 'del(.response[0])' "${device}".json | sponge "${device}".json
+      done
+    fi
   else
     echo "Creating new OTA json"
     jq -n '{"response": [{
