@@ -1,13 +1,13 @@
 #!/bin/bash
 #
-# Copyright (C) 2019-2021 ArianK16a
+# Copyright (C) 2019-2022 ArianK16a
 #
 # SPDX-License-Identifier: Apache-2.0
 #
 
 LOCAL_PATH="$(pwd)"
 
-if [ "$DEBUG_BUILD" = 1 ]; then
+if [ "${DEBUG_BUILD}" = 1 ]; then
   signed=0
 else
   signed=1
@@ -32,61 +32,78 @@ prepare () {
 
 prepare_vanilla () {
   rm -rf vendor/extra
-  git clone https://github.com/ArianK16a/android_vendor_extra.git -b lineage-18.1_vanilla vendor/extra
+  git clone https://github.com/ArianK16a/android_vendor_extra.git -b lineage-19.1_vanilla vendor/extra
   export TARGET_UNOFFICIAL_BUILD_ID=
 }
 
 prepare_gms () {
   rm -rf vendor/extra
-  git clone https://github.com/ArianK16a/android_vendor_extra.git -b lineage-18.1_gms vendor/extra
+  git clone https://github.com/ArianK16a/android_vendor_extra.git -b lineage-19.1_gms vendor/extra
   export TARGET_UNOFFICIAL_BUILD_ID=GMS
 }
 
 # build device gms
 build () {
+  device=${1}
   prepare
-  if [ "$DEBUG_BUILD" = 0 ]; then
+  if [[ ${DEBUG_BUILD} == 0 ]]; then
     repo sync --force-sync -q
     bash "${LOCAL_PATH}"/picks.sh
   fi
-  if [ "$2" = "gms" ]; then
+  if [[ ${2} = "gms" ]]; then
     prepare_gms
   else
     prepare_vanilla
   fi
-  breakfast "$1"
-  if [ "$DEBUG_BUILD" = 1 ]; then
+  breakfast ${device}
+  if [[ ${DEBUG_BUILD} = 1 ]]; then
     make installclean
   else
     make clean
   fi
-  telegram -N -M "*(i)* \`"$(basename ${LOCAL_PATH})"\` compilation for \`"$1"\` *started* on "$HOSTNAME"."
+  telegram -N -M "*(i)* \`"$(basename ${LOCAL_PATH})"\` compilation for \`${device}\` *started* on ${HOSTNAME}."
   build_start=$(date +"%s")
-  if [ "$signed" = 1 ]; then
-    breakfast "$1"
+  if [[ ${signed} = 1 ]]; then
+    breakfast ${device}
     mka target-files-package otatools
   else
-    brunch "$1"
+    brunch ${device}
   fi
-  build_result "$1" "$2"
-  if [ -f ${LOCAL_PATH}/.last_build_time ] && ([[ $(ls $OUT/obj/PACKAGING/target_files_intermediates/*-target_files-*.zip) ]] || [[ $(ls "$OUT"/lineage-*-"$1".zip) ]]); then
-    recovery_filename=$(cat "$OUT"/recovery/root/prop.default | grep ro.lineage.version=)
-    recovery_filename="${recovery_filename#*=}"
-    recovery_filename=lineage_recovery-"$recovery_filename".img
-    if [ "$signed" = 1 ]; then
+  build_result ${device} ${2}
+  if [[ -f ${LOCAL_PATH}/.last_build_time ]] && ([[ $(ls ${OUT}/obj/PACKAGING/target_files_intermediates/*-target_files-*.zip) ]] || [[ $(ls "${OUT}"/lineage-*-"${device}".zip) ]]); then
+    if [[ ${signed} = 1 ]]; then
       sign_target_files
-      unzip -p $OUT/signed-target_files-"$filename" IMAGES/recovery.img > $OUT/$recovery_filename
-    else
-      cp ${OUT}/recovery.img ${OUT}/${recovery_filename}
     fi
-    upload "$1" "$2" "$3"
+
+    img_version=$(cat "${OUT}"/system/build.prop | grep ro.lineage.version=)
+    img_version="${img_version#*=}"
+    img_version=lineage-"${img_version}"
+
+    has_ab_partitions=$(cat "${OUT}"/vendor/build.prop | grep ro.build.ab_update=)
+    has_ab_partitions="${has_ab_partitions#*=}"
+    if [[ ${has_ab_partitions} ]]; then
+      for partition in {boot, dlkm, dtbo, vendor_boot}; do
+        if [[ ${signed} = 1 ]]; then
+          unzip -p ${OUT}/signed-target_files-"${filename}" IMAGES/"${partition}".img > ${OUT}/${img_version}-${partition}.img
+        else
+          cp ${OUT}/${partition}.img ${OUT}/${img_version}-${partition}.img
+        fi
+      done
+    else
+      if [[ ${signed} = 1 ]]; then
+        unzip -p ${OUT}/signed-target_files-"${filename}" IMAGES/recovery.img > ${OUT}/${img_version}-recovery.img
+      else
+        cp ${OUT}/recovery.img ${OUT}/${img_version}-recovery.img
+      fi
+    fi
+    upload ${device} ${2}
   else
     extra_arguments=""
-    if [ "$1" = "davinci" ]; then
+    if [[ ${device} = "davinci" ]]; then
       extra_arguments="-c -1001426238293"
-    elif [ "$1" = "toco" ]; then
+    elif [[ ${device} = "toco" ]]; then
       extra_arguments="-c -1001443889354"
-    elif [ "$1" = "violet" ]; then
+    elif [[ ${device} = "violet" ]]; then
       extra_arguments="-c -1001656828188"
     fi
     telegram $extra_arguments "Compilation for "$1" failed!"
@@ -105,74 +122,79 @@ convertsecs() {
 build_result () {
   result=$(echo $?)
   build_end=$(date +"%s")
-  diff=$(($build_end - $build_start))
-  time=$(convertsecs "$diff")
-  if [ "$2" = "gms" ]; then
+  diff=$((${build_end} - ${build_start}))
+  time=$(convertsecs "${diff}")
+  if [[ ${2} = "gms" ]]; then
     type="GMS"
   else
     type="VANILLA"
   fi
-  if [ "$result" = "0" ]; then
-    echo "$time" > ${LOCAL_PATH}/.last_build_time
+  if [[ ${result} = "0" ]]; then
+    echo ${time} > ${LOCAL_PATH}/.last_build_time
     message="completed successfully"
   else
     message="failed"
   fi
-  telegram -M "*(i)* \`"$(basename ${LOCAL_PATH})"\` compilation for \`"$1"\` *$message* on "$HOSTNAME". Build variant: \`$type\`. Build time: \`$time\`."
+  telegram -M "*(i)* \`$(basename ${LOCAL_PATH})\` compilation for \`${1}\` *${message}* on ${HOSTNAME}. Build variant: \`${type}\`. Build time: \`${time}\`."
 }
 
 sign_target_files () {
-  filename=$(cat "$OUT"/system/build.prop | grep ro.lineage.version=)
+  filename=$(cat "${OUT}"/system/build.prop | grep ro.lineage.version=)
   filename="${filename#*=}"
-  filename=lineage-"$filename".zip
+  filename=lineage-"${filename}".zip
 
   ./out/soong/host/linux-x86/bin/sign_target_files_apks -o -d ~/.android-certs \
-    $OUT/obj/PACKAGING/target_files_intermediates/*-target_files-*.zip \
-    $OUT/signed-target_files-"$filename"
+    ${OUT}/obj/PACKAGING/target_files_intermediates/*-target_files-*.zip \
+    ${OUT}/signed-target_files-"${filename}"
 
   ./out/soong/host/linux-x86/bin/ota_from_target_files -k ~/.android-certs/releasekey \
     --block --backup=true \
-    $OUT/signed-target_files-"$filename" \
-    $OUT/"$filename"
+    ${OUT}/signed-target_files-"${filename}" \
+    ${OUT}/"$filename"
 
-  checksum=$(sha256sum "$OUT"/"$filename" | awk '{print $1}')
-  echo ""$checksum"  "$filename"" > $OUT/"$filename".sha256sum
+  checksum=$(sha256sum "${OUT}"/"${filename}" | awk '{print $1}')
+  echo "$checksum  ${filename}" > ${OUT}/"${filename}".sha256sum
 }
 
 # upload device gms
 upload () {
-  if [ "$1" = "" ]; then
+  device=${1}
+  if [[ ${device} = "" ]]; then
     echo "specify a device"
   fi
 
   project="$(basename ${LOCAL_PATH})"
 
-  rsync -Ph out/target/product/"$1"/lineage-*-"$1".zip ariank16a@frs.sourceforge.net:/home/frs/project/ephedraceae/"$1"/"$project"/
-  rsync -Ph out/target/product/"$1"/lineage-*-"$1".zip.sha256sum ariank16a@frs.sourceforge.net:/home/frs/project/ephedraceae/"$1"/"$project"/
+  rsync -Ph out/target/product/"${device}"/lineage-*-"${device}".zip ariank16a@frs.sourceforge.net:/home/frs/project/ephedraceae/"${device}"/"${project}"/
+  rsync -Ph out/target/product/"${device}"/lineage-*-"${device}".zip.sha256sum ariank16a@frs.sourceforge.net:/home/frs/project/ephedraceae/"${device}"/"${project}"/
 
-  recovery_filename=$(cat "$OUT"/recovery/root/prop.default | grep ro.lineage.version=)
-  recovery_filename="${recovery_filename#*=}"
-  recovery_filename=lineage_recovery-"$recovery_filename".img
-  rsync -Ph out/target/product/"$1"/"$recovery_filename" ariank16a@frs.sourceforge.net:/home/frs/project/ephedraceae/"$1"/recovery/"$project"/
+  img_version=$(cat "${OUT}"/system/build.prop | grep ro.lineage.version=)
+  img_version="${img_version#*=}"
+  img_version=lineage-"${img_version}"
+  for partition in {boot, dlkm, dtbo, recovery, vendor_boot}; do
+    if [[ -f out/target/product/"${device}"/${img_version}-${partition}.img ]]; then
+      rsync -Ph out/target/product/"${device}"/${img_version}-${partition}.img ariank16a@frs.sourceforge.net:/home/frs/project/ephedraceae/"${device}"/images/"${project}"/
+    fi
+  done
 
-  if [ "$DEBUG_BUILD" = 0 ]; then
-    release "$1" "$project" "$2"
+  if [[ ${DEBUG_BUILD} = 0 ]]; then
+    release ${device} ${project}
   fi
 }
 
 # release device gms
 release () {
-  device="$1"
+  device=${1}
   project="$(basename ${LOCAL_PATH})"
 
-  if [ "$2" = "gms" ]; then
+  if [[ ${2} = "gms" ]]; then
     type="GMS"
   else
     type="VANILLA"
   fi
 
-  download_link="https://sourceforge.net/projects/ephedraceae/files/"$1"/"$project"/$(basename $(ls out/target/product/"$1"/lineage-*-"$1".zip))"
-  recovery_download_link="https://sourceforge.net/projects/ephedraceae/files/"$1"/recovery/"$project"/$(basename $(ls out/target/product/"$1"/lineage_recovery-*-"$1".img))"
+  download_link="https://sourceforge.net/projects/ephedraceae/files/"${device}"/"$project"/$(basename $(ls out/target/product/"$1"/lineage-*-"$1".zip))"
+  images_download_link="https://sourceforge.net/projects/ephedraceae/files/"${device}"/images/"$project"/"
   time="$(cat ${LOCAL_PATH}/.last_build_time)"
   checksum="$(cat "${LOCAL_PATH}"/out/target/product/"$1"/lineage-*-"$1".zip.sha256sum | awk '{print $1}')"
   checksum_link="$download_link".sha256sum
@@ -184,85 +206,84 @@ release () {
   fi
   changelog_link=https://raw.githubusercontent.com/arian-ota/changelog/"$project"/"$device_variant".txt
 
-  if [ "$device" = "davinci" ]; then
-    group="@StarWarsFlowers"
+  if [[ ${device} = "davinci" ]]; then
+    group="@lineage\_davinci"
     extra_arguments="-c -1001426238293"
-  elif [ "$device" = "toco" ]; then
+  elif [[ ${device} = "toco" ]]; then
     group="@lineage\_toco"
     extra_arguments="-c -1001443889354"
-  elif [ "$device" = "violet" ]; then
+  elif [[ ${device} = "violet" ]]; then
     group="@LineageViolet"
     extra_arguments="-c -1001656828188"
   else
     extra_arguments="-c -1001159030901"
-    group="#"$device""
+    group="#${device}"
   fi
 
-  lineage_version=$(cat "$OUT"/system/build.prop | grep ro.lineage.build.version=)
+  lineage_version=$(cat "${OUT}"/system/build.prop | grep ro.lineage.build.version=)
   lineage_version="${lineage_version#*=}"
 
-  model=$(cat "$OUT"/system/build.prop | grep ro.product.system.model=)
+  model=$(cat "${OUT}"/system/build.prop | grep ro.product.system.model=)
   model="${model#*=}"
 
-  telegram $extra_arguments -M " \
+  security_patch=$(cat "${OUT}"/system/build.prop | grep ro.build.version.security_patch=)
+  security_patch="${security_patch#*=}"
+
+  telegram ${extra_arguments} -M " \
 *New LineageOS ${lineage_version} build for ${model} available! *
 
 📅 Build date: \'$(date +\'%Y-%m-%d\')\'
+🛡️ Security patch: \`${security_patch}\`
 💬 Variant: \`${type}\`
-
-*Download*
-⬇️ [${project}](${download_link})
-⬇️ [recovery](${recovery_download_link})
-✅ [checksum](${checksum_link}): \`${checksum}\`
 
 🚧 [Changelog](${changelog_link})
 
-*Build stats*
-⌛ Time: \`${time}\`
-🗣️ User: \`${USERNAME}\`
-💻 Host: \`${HOSTNAME}\`
+*Download*
+⬇️ [${project}](${download_link})
+⬇️ [images](${images_download_link})
+✅ [checksum](${checksum_link}): \`${checksum}\`
 
 ${group}
 "
-  update_ota "$device" "$project" "$3"
-  # TMP change this to make clean again
-  #make installclean
+  update_ota ${device} ${2}
+  # TODO - Maybe clean out after uploading
+  #make clean
 }
 
 # update_ota device gms
 update_ota () {
-  if [ "$1" = "" ]; then
+  if [[ ${1} = "" ]]; then
     echo "specify a device"
     return -1
   fi
 
-  if [ "$2" = "gms" ]; then
-    device="$1_gms"
+  if [[ ${2} = "gms" ]]; then
+    device="${1}_gms"
   else
-    device="$1"
+    device="${1}"
   fi
 
-  project="$(basename ${LOCAL_PATH})"
+  project=$(basename ${LOCAL_PATH})
 
-  breakfast "$1"
+  breakfast ${1}
 
-  datetime=$(cat "$OUT"/system/build.prop | grep ro.build.date.utc=)
+  datetime=$(cat "${OUT}"/system/build.prop | grep ro.build.date.utc=)
   datetime="${datetime#*=}"
 
-  filename=$(cat "$OUT"/system/build.prop | grep ro.lineage.version=)
+  filename=$(cat "${OUT}"/system/build.prop | grep ro.lineage.version=)
   filename="${filename#*=}"
-  filename=lineage-"$filename".zip
+  filename=lineage-"${filename}".zip
 
-  id=$(cat "$OUT"/"$filename".sha256sum | awk '{print $1}')
+  id=$(cat "${OUT}"/"${filename}".sha256sum | awk '{print $1}')
 
-  romtype=$(cat "$OUT"/system/build.prop | grep ro.lineage.releasetype=)
+  romtype=$(cat "${OUT}"/system/build.prop | grep ro.lineage.releasetype=)
   romtype="${romtype#*=}"
 
-  size=$(ls -l "$OUT"/"$filename" | awk '{print $5}')
+  size=$(ls -l "${OUT}"/"${filename}" | awk '{print $5}')
 
   url="https://sourceforge.net/projects/ephedraceae/files/"$1"/"${project}"/"$filename"/download"
 
-  version=$(cat "$OUT"/system/build.prop | grep ro.lineage.build.version=)
+  version=$(cat "${OUT}"/system/build.prop | grep ro.lineage.build.version=)
   version="${version#*=}"
 
   rm -rf "${LOCAL_PATH}"/ota
@@ -308,56 +329,54 @@ update_ota () {
 
 # update_changelog device gms
 update_changelog () {
-  if [ "$1" = "" ]; then
+  if [[ ${1} = "" ]]; then
     echo "specify a device"
     return -1
   fi
 
-  if [ "$2" = "gms" ]; then
-    device="$1_gms"
+  if [[ ${2} = "gms" ]]; then
+    device="${1}_gms"
   else
-    device="$1"
+    device="${1}"
   fi
 
   project="$(basename ${LOCAL_PATH})"
 
-  cd "${LOCAL_PATH}"/changelog
-  git add -A && git stash && git reset
-  git fetch git@github.com:arian-ota/changelog.git "$2"
-  git checkout FETCH_HEAD
-  cd ${LOCAL_PATH}
+  rm -rf "${LOCAL_PATH}"/changelog
+  git clone git@github.com:arian-ota/changelog.git -b "${project}"
 
-  export changelog="${LOCAL_PATH}"/changelog/"$device".txt
+  changelog="${LOCAL_PATH}"/changelog/"$device".txt
 
-  if [ -f $changelog ];
+  if [[ -f ${changelog} ]];
   then
-      rm $changelog
+      rm ${changelog}
   fi
 
-  touch $changelog
+  touch ${changelog}
 
+  # Generate changelog for 7 days
   for i in $(seq 7);
   do
-      export After_Date=`date --date="$i days ago" +%F`
+      start_date=`date --date="$i days ago" +%F`
       k=$(expr $i - 1)
-      export Until_Date=`date --date="$k days ago" +%F`
-      echo "====================" >> $changelog;
-      echo "     $Until_Date    " >> $changelog;
-      echo "====================" >> $changelog;
+      until_date=`date --date="$k days ago" +%F`
+      echo "====================" >> ${changelog};
+      echo "     $until_date    " >> ${changelog};
+      echo "====================" >> ${changelog};
       while read path;
       do
           # https://www.cyberciti.biz/faq/unix-linux-bash-script-check-if-variable-is-empty/
-          Git_log=`git --git-dir ./${path}/.git log --after=$After_Date --until=$Until_Date --pretty=tformat:"%h  %s  [%an]" --abbrev-commit --abbrev=7`
-          if [ ! -z "${Git_log}" ]; then
-              printf "\n* ${path}\n${Git_log}\n" >> $changelog;
+          git_log=`git --git-dir ./${path}/.git log --after=$start_date --until=$until_date --pretty=tformat:"%h  %s  [%an]" --abbrev-commit --abbrev=7`
+          if [ ! -z "${git_log}" ]; then
+              printf "\n* ${path}\n${git_log}\n" >> $changelog;
           fi
       done < ./.repo/project.list;
   done
 
   cd changelog
   git add "$device".txt
-  git commit -m "$device: Automatic changelog update"
-  git push git@github.com:arian-ota/changelog.git HEAD:"$2"
+  git commit -m "$device: Changelog update $(date +\'%Y-%m-%d\')"
+  git push git@github.com:arian-ota/changelog.git HEAD:"${project}"
   cd ${LOCAL_PATH}
 }
 
