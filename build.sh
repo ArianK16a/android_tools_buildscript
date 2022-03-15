@@ -304,6 +304,15 @@ update_ota () {
   git clone git@github.com:arian-ota/ota.git -b "${project}"
   cd "${LOCAL_PATH}"/ota
 
+  ota_entry='{
+        datetime: '${datetime}',
+        filename: "'${filename}'",
+        id: "'${id}'",
+        romtype: "'${romtype}'",
+        size: '${size}',
+        url: "'${url}'",
+        version: "'${version}'"
+      }'
   if [[ $(jq 'has("response")' "${device}".json 2> /dev/null) ]]; then
     append_ota=1
     for (( i = 0; i < 3; i++ )); do
@@ -315,15 +324,7 @@ update_ota () {
     done
     if [[ ${append_ota} == 1 ]]; then
       echo "Appending OTA to existing json"
-      jq '.response += [{
-            datetime: '${datetime}',
-            filename: "'${filename}'",
-            id: "'${id}'",
-            romtype: "'${romtype}'",
-            size: '${size}',
-            url: "'${url}'",
-            version: "'${version}'"
-          }]' "${device}".json | sponge "${device}".json
+      jq '.response += ['"${ota_entry}"']' "${device}".json | sponge "${device}".json
 
       # Trim the list of builds in Updater
       while [[ $(jq '.response | length' "${device}".json) > 3 ]]; do
@@ -332,15 +333,7 @@ update_ota () {
     fi
   else
     echo "Creating new OTA json"
-    jq -n '{"response": [{
-        datetime: '${datetime}',
-        filename: "'${filename}'",
-        id: "'${id}'",
-        romtype: "'${romtype}'",
-        size: '${size}',
-        url: "'${url}'",
-        version: "'${version}'"
-      }]}' > "${device}".json
+    jq -n '{"response": ['"${ota_entry}"']}' > "${device}".json
   fi
 
   git add "${device}".json
