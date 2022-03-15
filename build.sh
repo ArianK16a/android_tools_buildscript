@@ -241,10 +241,10 @@ release () {
   security_patch=$(cat "${OUT}"/system/build.prop | grep ro.build.version.security_patch=)
   security_patch="${security_patch#*=}"
 
-  telegram ${extra_arguments} -M " \
+  telegram -N ${extra_arguments} -M " \
 *New LineageOS ${lineage_version} build for ${model} available! *
 
-📅 Build date: \`$(date +\'%Y-%m-%d\')\`
+📅 Build date: \`$(date +%Y-%m-%d)\`
 🛡️ Security patch: \`${security_patch}\`
 💬 Variant: \`${type}\`
 
@@ -379,20 +379,18 @@ update_changelog () {
   # Generate changelog for 7 days
   for i in $(seq 7);
   do
-      start_date=`date --date="$i days ago" +%F`
-      k=$(expr $i - 1)
-      until_date=`date --date="$k days ago" +%F`
-      echo "====================" >> ${changelog};
-      echo "     $until_date    " >> ${changelog};
-      echo "====================" >> ${changelog};
-      while read path;
-      do
-          # https://www.cyberciti.biz/faq/unix-linux-bash-script-check-if-variable-is-empty/
-          git_log=`git --git-dir ./${path}/.git log --after=$start_date --until=$until_date --pretty=tformat:"%h  %s  [%an]" --abbrev-commit --abbrev=7`
-          if [ ! -z "${git_log}" ]; then
-              printf "\n* ${path}\n${git_log}\n" >> $changelog;
+      after_date=`date --date="$i days ago" +%F`
+      until_date=`date --date="$(expr ${i} - 1) days ago" +%F`
+      echo "====================" >> ${changelog}
+      echo "     $until_date    " >> ${changelog}
+      echo "====================" >> ${changelog}
+      while read path; do
+          git_log=`git --git-dir ./${path}/.git log --after=$after_date --until=$until_date --oneline --no-decorate`
+          if [[ ! -z "${git_log}" ]]; then
+              printf "\n* ${path}\n${git_log}\n" >> ${changelog}
           fi
-      done < ./.repo/project.list;
+      done < ./.repo/project.list
+      echo "" >> ${changelog}
   done
 
   cd changelog
