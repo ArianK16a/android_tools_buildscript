@@ -260,6 +260,7 @@ release () {
 ${group}
 "
   update_ota ${device} ${2}
+  update_changelog ${device} ${2}
   # TODO - Maybe clean out after uploading
   #make clean
 }
@@ -340,8 +341,6 @@ update_ota () {
   git commit -m "${device}: OTA update $(date +\'%Y-%m-%d\')"
   git push git@github.com:arian-ota/ota.git HEAD:"${project}"
   cd ${LOCAL_PATH}
-
-  update_changelog $1 ${project}
 }
 
 # update_changelog device gms
