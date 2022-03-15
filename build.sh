@@ -81,33 +81,35 @@ build () {
 
     has_ab_partitions=$(cat "${OUT}"/vendor/build.prop | grep ro.build.ab_update=)
     has_ab_partitions="${has_ab_partitions#*=}"
-    if [[ ${has_ab_partitions} ]]; then
-      for partition in {boot dlkm dtbo vendor_boot}; do
-        if [[ ${SIGNED} == 1 ]]; then
+    if [[ ${has_ab_partitions} == "true" ]]; then
+      partitions="{boot dlkm dtbo vendor_boot}"
+    else
+      partitions="{recovery}"
+    fi
+    for partition in ${partitions}; do
+      if [[ ${SIGNED} == 1 ]]; then
+        if [[ $(unzip -l ${OUT}/SIGNED-target_files-"${filename}" | grep -q IMAGES/"${partition}".img && echo $?) == 0 ]]; then
           unzip -p ${OUT}/SIGNED-target_files-"${filename}" IMAGES/"${partition}".img > ${OUT}/${img_version}-${partition}.img
-        else
+        fi
+      else
+        if [[ -f ${OUT}/${partition}.img ]]; then
           cp ${OUT}/${partition}.img ${OUT}/${img_version}-${partition}.img
         fi
-      done
-    else
-      if [[ ${SIGNED} == 1 ]]; then
-        unzip -p ${OUT}/SIGNED-target_files-"${filename}" IMAGES/recovery.img > ${OUT}/${img_version}-recovery.img
-      else
-        cp ${OUT}/recovery.img ${OUT}/${img_version}-recovery.img
       fi
-    fi
+    done
     if [[ ${DEBUG_BUILD} == 0 ]]; then
       upload ${device} ${2}
     fi
   else
     if [[ ${DEBUG_BUILD} == 0 ]]; then
-      extra_arguments=""
       if [[ ${device} == "davinci" ]]; then
         extra_arguments="-c -1001426238293"
       elif [[ ${device} == "toco" ]]; then
         extra_arguments="-c -1001443889354"
       elif [[ ${device} == "violet" ]]; then
         extra_arguments="-c -1001656828188"
+      else
+        extra_arguments=""
       fi
       telegram $extra_arguments "Compilation for "$1" failed!"
     fi
