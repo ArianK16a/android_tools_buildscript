@@ -302,8 +302,14 @@ update_ota () {
   version="${version#*=}"
 
   rm -rf "${LOCAL_PATH}"/ota
-  git clone git@github.com:arian-ota/ota.git -b "${project}"
+  git clone git@github.com:arian-ota/ota.git
   cd "${LOCAL_PATH}"/ota
+  if [[ $(git fetch origin "${project}" && echo ${?}) == 0 ]]; then
+    git checkout origin/"${project}"
+  else
+    git checkout --orphan "${project}"
+    git rm -rf .
+  fi
 
   ota_entry='{
         datetime: '${datetime}',
@@ -339,7 +345,7 @@ update_ota () {
 
   git add "${device}".json
   git commit -m "${device}: OTA update $(date +\'%Y-%m-%d\')"
-  git push git@github.com:arian-ota/ota.git HEAD:"${project}"
+  git push git@github.com:arian-ota/ota.git HEAD:refs/heads/"${project}"
   cd ${LOCAL_PATH}
 }
 
@@ -359,7 +365,15 @@ update_changelog () {
   project="$(basename ${LOCAL_PATH})"
 
   rm -rf "${LOCAL_PATH}"/changelog
-  git clone git@github.com:arian-ota/changelog.git -b "${project}"
+  git clone git@github.com:arian-ota/changelog.git
+  cd "${LOCAL_PATH}"/changelog
+  if [[ $(git fetch origin "${project}" && echo ${?}) == 0 ]]; then
+    git checkout origin/"${project}"
+  else
+    git checkout --orphan "${project}"
+    git rm -rf .
+  fi
+  cd ..
 
   changelog="${LOCAL_PATH}"/changelog/"$device".txt
 
@@ -390,7 +404,7 @@ update_changelog () {
   cd changelog
   git add "$device".txt
   git commit -m "$device: Changelog update $(date +\'%Y-%m-%d\')"
-  git push git@github.com:arian-ota/changelog.git HEAD:"${project}"
+  git push git@github.com:arian-ota/changelog.git HEAD:refs/heads/"${project}"
   cd ${LOCAL_PATH}
 }
 
