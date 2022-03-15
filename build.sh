@@ -82,7 +82,7 @@ build () {
     has_ab_partitions=$(cat "${OUT}"/vendor/build.prop | grep ro.build.ab_update=)
     has_ab_partitions="${has_ab_partitions#*=}"
     if [[ ${has_ab_partitions} ]]; then
-      for partition in {boot, dlkm, dtbo, vendor_boot}; do
+      for partition in {boot dlkm dtbo vendor_boot}; do
         if [[ ${SIGNED} == 1 ]]; then
           unzip -p ${OUT}/SIGNED-target_files-"${filename}" IMAGES/"${partition}".img > ${OUT}/${img_version}-${partition}.img
         else
