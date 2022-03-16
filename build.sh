@@ -18,58 +18,52 @@ telegram () {
   /home/arian/telegram.sh/telegram "$@"
 }
 
-prepare () {
+# build device gms
+build () {
+  device=${1}
+  project="$(basename ${LOCAL_PATH})"
+
   cd ${LOCAL_PATH}
   source build/envsetup.sh
+
   export CCACHE_EXEC=$(command -v ccache)
   export CCACHE_DIR=$(pwd)/.ccache
   export USE_CCACHE=1
   ccache -M 20G
-  if [ -f ${LOCAL_PATH}/.last_build_time ]; then
+
+  if [[ -f ${LOCAL_PATH}/.last_build_time ]]; then
     rm ${LOCAL_PATH}/.last_build_time
   fi
-}
-
-prepare_vanilla () {
-  rm -rf vendor/extra
-  git clone https://github.com/ArianK16a/android_vendor_extra.git -b lineage-19.1_vanilla vendor/extra
-  export TARGET_UNOFFICIAL_BUILD_ID=
-}
-
-prepare_gms () {
-  rm -rf vendor/extra
-  git clone https://github.com/ArianK16a/android_vendor_extra.git -b lineage-19.1_gms vendor/extra
-  export TARGET_UNOFFICIAL_BUILD_ID=GMS
-}
-
-# build device gms
-build () {
-  device=${1}
-  prepare
   if [[ ${DEBUG_BUILD} == 0 ]]; then
     repo sync -j12 --detach --no-clone-bundle --fail-fast --current-branch --force-sync
     bash "${LOCAL_PATH}"/picks.sh
   fi
+
+  rm -rf vendor/extra
   if [[ ${2} == "gms" ]]; then
-    prepare_gms
+    git clone https://github.com/ArianK16a/android_vendor_extra.git -b "${project}"_gms vendor/extra
+    export TARGET_UNOFFICIAL_BUILD_ID=GMS
   else
-    prepare_vanilla
+    git clone https://github.com/ArianK16a/android_vendor_extra.git -b "${project}"_vanilla vendor/extra
+    export TARGET_UNOFFICIAL_BUILD_ID=
   fi
+
   breakfast ${device}
-  if [[ ${DEBUG_BUILD} == 1 ]]; then
-    make installclean
-  else
+  if [[ ${DEBUG_BUILD} == 0 ]]; then
     make clean
+  else
+    make installclean
   fi
   telegram -N -M "*(i)* \`"$(basename ${LOCAL_PATH})"\` compilation for \`${device}\` *started* on ${HOSTNAME}."
   build_start=$(date +"%s")
   if [[ ${SIGNED} == 1 ]]; then
-    breakfast ${device}
     mka target-files-package otatools
   else
     brunch ${device}
   fi
   build_result ${device} ${2}
+
+  # post-build
   if [[ -f ${LOCAL_PATH}/.last_build_time ]] && ([[ $(ls ${OUT}/obj/PACKAGING/target_files_intermediates/*-target_files-*.zip) ]] || [[ $(ls "${OUT}"/lineage-*-"${device}".zip) ]]); then
     if [[ ${SIGNED} == 1 ]]; then
       sign_target_files
@@ -237,25 +231,35 @@ release () {
   lineage_version=$(cat "${OUT}"/system/build.prop | grep ro.lineage.build.version=)
   lineage_version="${lineage_version#*=}"
 
+  brand=$(cat "${OUT}"/system/build.prop | grep ro.product.system.brand=)
+  brand="${brand#*=}"
   model=$(cat "${OUT}"/system/build.prop | grep ro.product.system.model=)
   model="${model#*=}"
+  device=$(cat "${OUT}"/system/build.prop | grep ro.product.system.device=)
+  device="${device#*=}"
 
+  date=$(cat "${OUT}"/system/build.prop | grep ro.system.build.date.utc=)
+  date="${date#*=}"
+  date=$(date -d @${date} +%F)
   security_patch=$(cat "${OUT}"/system/build.prop | grep ro.build.version.security_patch=)
   security_patch="${security_patch#*=}"
 
-  telegram -N ${extra_arguments} -M " \
-*New LineageOS ${lineage_version} build for ${model} available! *
+  telegram ${extra_arguments} -M " \
+*LineageOS ${lineage_version} for ${brand} ${model} (${device})*
 
-📅 Build date: \`$(date +%Y-%m-%d)\`
+📅 Build date: \`${date}\`
 🛡️ Security patch: \`${security_patch}\`
 💬 Variant: \`${type}\`
 
-🚧 [Changelog](${changelog_link})
+🗒️ [Changelog](${changelog_link})
 
 *Download*
 ⬇️ [${project}](${download_link})
-⬇️ [images](${images_download_link})
-✅ [checksum](${checksum_link}): \`${checksum}\`
+☑️ [checksum](${checksum_link})
+💽 [lineage recovery](${images_download_link})
+
+*SHA-256 checksum*
+\`${checksum}\`
 
 ${group}
 "
@@ -273,9 +277,9 @@ update_ota () {
   fi
 
   if [[ ${2} == "gms" ]]; then
-    device="${1}_gms"
+    ota_device="${1}_gms"
   else
-    device="${1}"
+    ota_device="${1}"
   fi
 
   project=$(basename ${LOCAL_PATH})
@@ -320,10 +324,10 @@ update_ota () {
         url: "'${url}'",
         version: "'${version}'"
       }'
-  if [[ $(jq 'has("response")' "${device}".json 2> /dev/null) ]]; then
+  if [[ $(jq 'has("response")' "${ota_device}".json 2> /dev/null) ]]; then
     append_ota=1
     for (( i = 0; i < 3; i++ )); do
-      if [[ $(jq -r .response[${i}].id "${device}".json) == ${id} ]]; then
+      if [[ $(jq -r .response[${i}].id "${ota_device}".json) == ${id} ]]; then
         echo "OTA json already contains update with id ${id}"
         append_ota=0
         break
@@ -331,20 +335,20 @@ update_ota () {
     done
     if [[ ${append_ota} == 1 ]]; then
       echo "Appending OTA to existing json"
-      jq '.response += ['"${ota_entry}"']' "${device}".json | sponge "${device}".json
+      jq '.response += ['"${ota_entry}"']' "${ota_device}".json | sponge "${ota_device}".json
 
       # Trim the list of builds in Updater
-      while [[ $(jq '.response | length' "${device}".json) > 3 ]]; do
-        jq 'del(.response[0])' "${device}".json | sponge "${device}".json
+      while [[ $(jq '.response | length' "${ota_device}".json) > 3 ]]; do
+        jq 'del(.response[0])' "${ota_device}".json | sponge "${ota_device}".json
       done
     fi
   else
     echo "Creating new OTA json"
-    jq -n '{"response": ['"${ota_entry}"']}' > "${device}".json
+    jq -n '{"response": ['"${ota_entry}"']}' > "${ota_device}".json
   fi
 
-  git add "${device}".json
-  git commit -m "${device}: OTA update $(date +\'%Y-%m-%d\')"
+  git add "${ota_device}".json
+  git commit -m "${ota_device}: OTA update $(date +%F)"
   git push git@github.com:arian-ota/ota.git HEAD:refs/heads/"${project}"
   cd ${LOCAL_PATH}
 }
@@ -357,9 +361,9 @@ update_changelog () {
   fi
 
   if [[ ${2} == "gms" ]]; then
-    device="${1}_gms"
+    changelog_device="${1}_gms"
   else
-    device="${1}"
+    changelog_device="${1}"
   fi
 
   project="$(basename ${LOCAL_PATH})"
@@ -375,7 +379,7 @@ update_changelog () {
   fi
   cd ..
 
-  changelog="${LOCAL_PATH}"/changelog/"$device".txt
+  changelog="${LOCAL_PATH}"/changelog/"${changelog_device}".txt
 
   if [[ -f ${changelog} ]];
   then
@@ -393,17 +397,18 @@ update_changelog () {
       echo "     $until_date    " >> ${changelog}
       echo "====================" >> ${changelog}
       while read path; do
-          git_log=`git --git-dir ./${path}/.git log --after=$after_date --until=$until_date --oneline --no-decorate`
+          git_log=`git --git-dir ./${path}/.git log --after=$after_date --until=$until_date --format=tformat:"%h %s [%an]"`
           if [[ ! -z "${git_log}" ]]; then
-              printf "\n* ${path}\n${git_log}\n" >> ${changelog}
+              echo "* ${path}" >> ${changelog}
+              echo "${git_log}" >> ${changelog}
+              echo "" >> ${changelog}
           fi
       done < ./.repo/project.list
-      echo "" >> ${changelog}
   done
 
   cd changelog
-  git add "$device".txt
-  git commit -m "$device: Changelog update $(date +\'%Y-%m-%d\')"
+  git add "${changelog_device}".txt
+  git commit -m "${changelog_device}: Changelog update $(date +%F)"
   git push git@github.com:arian-ota/changelog.git HEAD:refs/heads/"${project}"
   cd ${LOCAL_PATH}
 }
