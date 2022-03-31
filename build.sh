@@ -76,9 +76,9 @@ build () {
     has_ab_partitions=$(cat "${OUT}"/vendor/build.prop | grep ro.build.ab_update=)
     has_ab_partitions="${has_ab_partitions#*=}"
     if [[ ${has_ab_partitions} == "true" ]]; then
-      partitions="{boot dlkm dtbo vendor_boot}"
+      partitions="boot dlkm dtbo vendor_boot"
     else
-      partitions="{recovery}"
+      partitions="recovery"
     fi
     for partition in ${partitions}; do
       if [[ ${SIGNED} == 1 ]]; then
@@ -179,7 +179,7 @@ upload () {
   img_version=$(cat "${OUT}"/system/build.prop | grep ro.lineage.version=)
   img_version="${img_version#*=}"
   img_version=lineage-"${img_version}"
-  for partition in {boot dlkm dtbo recovery vendor_boot}; do
+  for partition in boot dlkm dtbo recovery vendor_boot; do
     if [[ -f out/target/product/"${device}"/${img_version}-${partition}.img ]]; then
       rsync -Ph out/target/product/"${device}"/${img_version}-${partition}.img ariank16a@frs.sourceforge.net:/home/frs/project/ephedraceae/"${device}"/images/"${project}"/
     fi
