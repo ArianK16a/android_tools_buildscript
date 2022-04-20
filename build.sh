@@ -186,7 +186,7 @@ upload () {
   done
 
   if [[ ${DEBUG_BUILD} == 0 ]]; then
-    release ${device} ${project}
+    release ${device} ${2}
   fi
 }
 
