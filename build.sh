@@ -5,6 +5,8 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
+set -e
+
 LOCAL_PATH="$(pwd)"
 
 if [ "${DEBUG_BUILD}" == 1 ]; then
@@ -39,7 +41,10 @@ build () {
     bash "${LOCAL_PATH}"/picks.sh
   fi
 
-  rm -rf vendor/extra
+  if [[ -d vendor/extra ]];
+  then
+    rm -rf vendor/extra
+  fi
   if [[ ${2} == "gms" ]]; then
     git clone https://github.com/ArianK16a/android_vendor_extra.git -b "${project}"_gms vendor/extra
     export TARGET_UNOFFICIAL_BUILD_ID=GMS
@@ -57,11 +62,14 @@ build () {
   telegram -N -M "*(i)* \`"$(basename ${LOCAL_PATH})"\` compilation for \`${device}\` *started* on ${HOSTNAME}."
   build_start=$(date +"%s")
   if [[ ${SIGNED} == 1 ]]; then
-    mka target-files-package otatools
+    mka target-files-package otatools \
+        && build_result true ${2} \
+        || build_result false ${2}
   else
-    brunch ${device}
+    brunch ${device} \
+        && build_result true ${2} \
+        || build_result false ${2}
   fi
-  build_result ${device} ${2}
 
   # post-build
   if [[ -f ${LOCAL_PATH}/.last_build_time ]] && ([[ $(ls ${OUT}/obj/PACKAGING/target_files_intermediates/*-target_files-*.zip) ]] || [[ $(ls "${OUT}"/lineage-*-"${device}".zip) ]]); then
@@ -117,9 +125,9 @@ convertsecs() {
   printf "%02d:%02d:%02d\n" $h $m $s
 }
 
-# build_result device gms
+# build_result result gms
 build_result () {
-  result=$(echo $?)
+  result=${1}
   build_end=$(date +"%s")
   diff=$((${build_end} - ${build_start}))
   time=$(convertsecs "${diff}")
@@ -128,7 +136,7 @@ build_result () {
   else
     type="VANILLA"
   fi
-  if [[ ${result} == "0" ]]; then
+  if [[ ${result} ]]; then
     echo ${time} > ${LOCAL_PATH}/.last_build_time
     message="completed successfully"
   else
@@ -169,7 +177,7 @@ upload_sourceforge () {
     echo 'mkdir /home/frs/project/ephedraceae/'${device}'/'${project}'/'
     echo 'mkdir /home/frs/project/ephedraceae/'${device}'/images/'
     echo 'mkdir /home/frs/project/ephedraceae/'${device}'/images/'${project}'/'
-  } | sftp ariank16a@frs.sourceforge.net
+  } | sftp ariank16a@frs.sourceforge.net || true
 
   rsync -Ph out/target/product/"${device}"/lineage-*-"${device}".zip ariank16a@frs.sourceforge.net:/home/frs/project/ephedraceae/"${device}"/"${project}"/
   rsync -Ph out/target/product/"${device}"/lineage-*-"${device}".zip.sha256sum ariank16a@frs.sourceforge.net:/home/frs/project/ephedraceae/"${device}"/"${project}"/
@@ -301,7 +309,10 @@ update_ota () {
   version=$(cat "${OUT}"/system/build.prop | grep ro.lineage.build.version=)
   version="${version#*=}"
 
-  rm -rf "${LOCAL_PATH}"/ota
+  if [[ -d "${LOCAL_PATH}"/ota ]];
+  then
+    rm -rf "${LOCAL_PATH}"/ota
+  fi
   git clone git@github.com:arian-ota/ota.git
   cd "${LOCAL_PATH}"/ota
   if [[ $(git fetch origin "${project}" && echo ${?}) == 0 ]]; then
@@ -364,7 +375,10 @@ update_changelog () {
 
   project="$(basename ${LOCAL_PATH})"
 
-  rm -rf "${LOCAL_PATH}"/changelog
+  if [[ -d "${LOCAL_PATH}"/changelog ]];
+  then
+    rm -rf "${LOCAL_PATH}"/changelog
+  fi
   git clone git@github.com:arian-ota/changelog.git
   cd "${LOCAL_PATH}"/changelog
   if [[ $(git fetch origin "${project}" && echo ${?}) == 0 ]]; then
