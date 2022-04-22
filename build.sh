@@ -91,7 +91,7 @@ build () {
       fi
     done
     if [[ ${DEBUG_BUILD} == 0 ]]; then
-      upload ${device} ${2}
+      upload_sourceforge ${device} ${2}
     fi
   else
     if [[ ${DEBUG_BUILD} == 0 ]]; then
@@ -154,8 +154,8 @@ sign_target_files () {
   echo "$checksum  ${filename}" > ${OUT}/"${filename}".sha256sum
 }
 
-# upload device gms
-upload () {
+# upload_sourceforge device gms
+upload_sourceforge () {
   device=${1}
   if [[ ${device} == "" ]]; then
     echo "specify a device"
