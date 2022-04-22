@@ -5,8 +5,6 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-set -e
-
 LOCAL_PATH="$(pwd)"
 
 if [ "${DEBUG_BUILD}" == 1 ]; then
@@ -62,14 +60,11 @@ build () {
   telegram -N -M "*(i)* \`"$(basename ${LOCAL_PATH})"\` compilation for \`${device}\` *started* on ${HOSTNAME}."
   build_start=$(date +"%s")
   if [[ ${SIGNED} == 1 ]]; then
-    mka target-files-package otatools \
-        && build_result true ${2} \
-        || build_result false ${2}
+    mka target-files-package otatools
   else
-    brunch ${device} \
-        && build_result true ${2} \
-        || build_result false ${2}
+    brunch ${device}
   fi
+  build_result ${device} ${2}
 
   # post-build
   if [[ -f ${LOCAL_PATH}/.last_build_time ]] && ([[ $(ls ${OUT}/obj/PACKAGING/target_files_intermediates/*-target_files-*.zip) ]] || [[ $(ls "${OUT}"/lineage-*-"${device}".zip) ]]); then
@@ -125,9 +120,9 @@ convertsecs() {
   printf "%02d:%02d:%02d\n" $h $m $s
 }
 
-# build_result result gms
+# build_result device gms
 build_result () {
-  result=${1}
+  result=$(echo $?)
   build_end=$(date +"%s")
   diff=$((${build_end} - ${build_start}))
   time=$(convertsecs "${diff}")
@@ -136,7 +131,7 @@ build_result () {
   else
     type="VANILLA"
   fi
-  if [[ ${result} ]]; then
+  if [[ ${result} == "0" ]]; then
     echo ${time} > ${LOCAL_PATH}/.last_build_time
     message="completed successfully"
   else
@@ -177,7 +172,7 @@ upload_sourceforge () {
     echo 'mkdir /home/frs/project/ephedraceae/'${device}'/'${project}'/'
     echo 'mkdir /home/frs/project/ephedraceae/'${device}'/images/'
     echo 'mkdir /home/frs/project/ephedraceae/'${device}'/images/'${project}'/'
-  } | sftp ariank16a@frs.sourceforge.net || true
+  } | sftp ariank16a@frs.sourceforge.net
 
   rsync -Ph out/target/product/"${device}"/lineage-*-"${device}".zip ariank16a@frs.sourceforge.net:/home/frs/project/ephedraceae/"${device}"/"${project}"/
   rsync -Ph out/target/product/"${device}"/lineage-*-"${device}".zip.sha256sum ariank16a@frs.sourceforge.net:/home/frs/project/ephedraceae/"${device}"/"${project}"/
