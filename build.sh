@@ -70,8 +70,7 @@ build () {
     fi
 
     img_version=$(cat "${OUT}"/system/build.prop | grep ro.lineage.version=)
-    img_version="${img_version#*=}"
-    img_version=lineage-"${img_version}"
+    img_version=lineage-"${img_version#*=}"
 
     has_ab_partitions=$(cat "${OUT}"/vendor/build.prop | grep ro.build.ab_update=)
     has_ab_partitions="${has_ab_partitions#*=}"
@@ -140,8 +139,7 @@ build_result () {
 
 sign_target_files () {
   filename=$(cat "${OUT}"/system/build.prop | grep ro.lineage.version=)
-  filename="${filename#*=}"
-  filename=lineage-"${filename}".zip
+  filename=lineage-"${filename#*=}".zip
 
   ./out/soong/host/linux-x86/bin/sign_target_files_apks -o -d ~/.android-certs \
     ${OUT}/obj/PACKAGING/target_files_intermediates/*-target_files-*.zip \
@@ -177,8 +175,7 @@ upload () {
   rsync -Ph out/target/product/"${device}"/lineage-*-"${device}".zip.sha256sum ariank16a@frs.sourceforge.net:/home/frs/project/ephedraceae/"${device}"/"${project}"/
 
   img_version=$(cat "${OUT}"/system/build.prop | grep ro.lineage.version=)
-  img_version="${img_version#*=}"
-  img_version=lineage-"${img_version}"
+  img_version=lineage-"${img_version#*=}"
   for partition in boot dlkm dtbo recovery vendor_boot; do
     if [[ -f out/target/product/"${device}"/${img_version}-${partition}.img ]]; then
       rsync -Ph out/target/product/"${device}"/${img_version}-${partition}.img ariank16a@frs.sourceforge.net:/home/frs/project/ephedraceae/"${device}"/images/"${project}"/
@@ -290,8 +287,7 @@ update_ota () {
   datetime="${datetime#*=}"
 
   filename=$(cat "${OUT}"/system/build.prop | grep ro.lineage.version=)
-  filename="${filename#*=}"
-  filename=lineage-"${filename}".zip
+  filename=lineage-"${filename#*=}".zip
 
   id=$(cat "${OUT}"/"${filename}".sha256sum | awk '{print $1}')
 
