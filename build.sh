@@ -196,28 +196,107 @@ upload_sourceforge () {
 }
 
 # release device gms
+# release flow:
+#   1. Clone OTA repository
+#   2. Update OTA json
+#   3. Commit, tag and push OTA repo
+#   4. Update changelos
+#   5. Upload artifacts to mirror (sourceforge)
+#   6. Create github release
+#   7. Post telegram release post
 release () {
   device=${1}
   project="$(basename ${LOCAL_PATH})"
 
   if [[ ${2} == "gms" ]]; then
     type="GMS"
+    device_variant="${device}_gms"
   else
     type="VANILLA"
+    device_variant="${device}"
   fi
 
-  download_link="https://sourceforge.net/projects/ephedraceae/files/"${device}"/"$project"/$(basename $(ls out/target/product/"$1"/lineage-*-"$1".zip))"
-  images_download_link="https://sourceforge.net/projects/ephedraceae/files/"${device}"/images/"$project"/"
-  time="$(cat ${LOCAL_PATH}/.last_build_time)"
-  checksum="$(cat "${LOCAL_PATH}"/out/target/product/"$1"/lineage-*-"$1".zip.sha256sum | awk '{print $1}')"
-  checksum_link="$download_link".sha256sum
+  breakfast ${device}
 
-  if [ "$2" == "gms" ]; then
-    device_variant="$1_gms"
+  if [[ -d "${LOCAL_PATH}"/ota ]];
+  then
+    rm -rf "${LOCAL_PATH}"/ota
+  fi
+  git clone git@github.com:arian-ota/ota.git
+  cd "${LOCAL_PATH}"/ota
+  if [[ $(git fetch origin "${project}" && echo ${?}) == 0 ]]; then
+    git checkout origin/"${project}"
   else
-    device_variant="$1"
+    git checkout --orphan "${project}"
+    git rm -rf .
   fi
+
+  datetime=$(cat "${OUT}"/system/build.prop | grep ro.build.date.utc=)
+  datetime="${datetime#*=}"
+  filename=$(cat "${OUT}"/system/build.prop | grep ro.lineage.version=)
+  filename_without_extension=lineage-"${filename#*=}"
+  filename="${filename_without_extension#*=}".zip
+  id=$(cat "${OUT}"/"${filename}".sha256sum | awk '{print $1}')
+  romtype=$(cat "${OUT}"/system/build.prop | grep ro.lineage.releasetype=)
+  romtype="${romtype#*=}"
+  size=$(ls -l "${OUT}"/"${filename}" | awk '{print $5}')
+  version=$(cat "${OUT}"/system/build.prop | grep ro.lineage.build.version=)
+  version="${version#*=}"
+
+  tag="${version}"-"${device_variant}"-"${id:0:8}"
+  url="https://github.com/arian-ota/ota/releases/download/"${tag}"/"${filename}
+
+  ota_entry='{
+        datetime: '${datetime}',
+        filename: "'${filename}'",
+        id: "'${id}'",
+        romtype: "'${romtype}'",
+        size: '${size}',
+        url: "'${url}'",
+        version: "'${version}'"
+      }'
+  if [[ $(jq 'has("response")' "${device_variant}".json 2> /dev/null) ]]; then
+    append_ota=1
+    for (( i = 0; i < 3; i++ )); do
+      if [[ $(jq -r .response[${i}].id "${device_variant}".json) == ${id} ]]; then
+        echo "OTA json already contains update with id ${id}"
+        append_ota=0
+        break
+      fi
+    done
+    if [[ ${append_ota} == 1 ]]; then
+      echo "Appending OTA to existing json"
+      jq '.response += ['"${ota_entry}"']' "${device_variant}".json | sponge "${device_variant}".json
+
+      # Trim the list of builds in Updater
+      while [[ $(jq '.response | length' "${device_variant}".json) > 3 ]]; do
+        jq 'del(.response[0])' "${device_variant}".json | sponge "${device_variant}".json
+      done
+    fi
+  else
+    echo "Creating new OTA json"
+    jq -n '{"response": ['"${ota_entry}"']}' > "${device_variant}".json
+  fi
+
+  git add "${device_variant}".json
+  git commit -m "${device_variant}: OTA update $(date +%F)"
+  git push git@github.com:arian-ota/ota.git HEAD:refs/heads/"${project}"
+
+  git tag "${tag}" HEAD
+  git push git@github.com:arian-ota/ota.git "${tag}"
+
+  cd ${LOCAL_PATH}
+
+  update_changelog "${device}" "${2}"
   changelog_link=https://raw.githubusercontent.com/arian-ota/changelog/"$project"/"$device_variant".txt
+
+  upload_sourceforge "${device}" "${2}"
+
+  sourceforge_download_link="https://sourceforge.net/projects/ephedraceae/files/"${device}"/"$project"/$(basename $(ls out/target/product/"$1"/lineage-*-"$1".zip))"
+  sourceforge_images_download_link="https://sourceforge.net/projects/ephedraceae/files/"${device}"/images/"$project"/"
+  time="$(cat ${LOCAL_PATH}/.last_build_time)"
+
+  checksum_link="${url}".sha256sum
 
   if [[ ${device} == "davinci" ]]; then
     group="@lineage\_davinci"
@@ -233,9 +312,6 @@ release () {
     group="#${device}"
   fi
 
-  lineage_version=$(cat "${OUT}"/system/build.prop | grep ro.lineage.build.version=)
-  lineage_version="${lineage_version#*=}"
-
   brand=$(cat "${OUT}"/system/build.prop | grep ro.product.system.brand=)
   brand="${brand#*=}"
   model=$(cat "${OUT}"/system/build.prop | grep ro.product.system.model=)
@@ -243,121 +319,45 @@ release () {
   device=$(cat "${OUT}"/system/build.prop | grep ro.product.system.device=)
   device="${device#*=}"
 
-  date=$(cat "${OUT}"/system/build.prop | grep ro.system.build.date.utc=)
-  date="${date#*=}"
-  date=$(date -d @${date} +%F)
+  date=$(date -d @${datetime} +%F)
   security_patch=$(cat "${OUT}"/system/build.prop | grep ro.build.version.security_patch=)
   security_patch="${security_patch#*=}"
 
-  telegram ${extra_arguments} -M " \
-*LineageOS ${lineage_version} for ${brand} ${model} (${device})*
-
+  title="LineageOS ${version} for ${brand} ${model} (${device})"
+  build_info="
 📅 Build date: \`${date}\`
 🛡️ Security patch: \`${security_patch}\`
 💬 Variant: \`${type}\`
 
-🗒️ [Changelog](${changelog_link})
+🗒️ [Changelog](${changelog_link})"
+
+  cd ota/
+  gh release create "${tag}" \
+      --title "${title}" \
+      --notes "${build_info}
+
+**SHA-256 checksum**
+\`${id}\`
+" \
+      "${OUT}"/"${filename_without_extension}"*
+
+  cd "${LOCAL_PATH}"
+
+  telegram ${extra_arguments} -M " \
+*${title}*
+
+${build_info}
 
 *Download*
-⬇️ [${project}](${download_link})
+⬇️ [${project}](${url}) ([mirror](${sourceforge_download_link}))
 ☑️ [checksum](${checksum_link})
-💽 [lineage recovery](${images_download_link})
+💽 [lineage recovery](${sourceforge_images_download_link})
 
 *SHA-256 checksum*
-\`${checksum}\`
+\`${id}\`
 
 ${group}
 "
-  update_ota ${device} ${2}
-  update_changelog ${device} ${2}
-  # TODO - Maybe clean out after uploading
-  #make clean
-}
-
-# update_ota device gms
-update_ota () {
-  if [[ ${1} == "" ]]; then
-    echo "specify a device"
-    return -1
-  fi
-
-  if [[ ${2} == "gms" ]]; then
-    ota_device="${1}_gms"
-  else
-    ota_device="${1}"
-  fi
-
-  project=$(basename ${LOCAL_PATH})
-
-  breakfast ${1}
-
-  datetime=$(cat "${OUT}"/system/build.prop | grep ro.build.date.utc=)
-  datetime="${datetime#*=}"
-
-  filename=$(cat "${OUT}"/system/build.prop | grep ro.lineage.version=)
-  filename=lineage-"${filename#*=}".zip
-
-  id=$(cat "${OUT}"/"${filename}".sha256sum | awk '{print $1}')
-
-  romtype=$(cat "${OUT}"/system/build.prop | grep ro.lineage.releasetype=)
-  romtype="${romtype#*=}"
-
-  size=$(ls -l "${OUT}"/"${filename}" | awk '{print $5}')
-
-  url="https://sourceforge.net/projects/ephedraceae/files/"$1"/"${project}"/"$filename"/download"
-
-  version=$(cat "${OUT}"/system/build.prop | grep ro.lineage.build.version=)
-  version="${version#*=}"
-
-  if [[ -d "${LOCAL_PATH}"/ota ]];
-  then
-    rm -rf "${LOCAL_PATH}"/ota
-  fi
-  git clone git@github.com:arian-ota/ota.git
-  cd "${LOCAL_PATH}"/ota
-  if [[ $(git fetch origin "${project}" && echo ${?}) == 0 ]]; then
-    git checkout origin/"${project}"
-  else
-    git checkout --orphan "${project}"
-    git rm -rf .
-  fi
-
-  ota_entry='{
-        datetime: '${datetime}',
-        filename: "'${filename}'",
-        id: "'${id}'",
-        romtype: "'${romtype}'",
-        size: '${size}',
-        url: "'${url}'",
-        version: "'${version}'"
-      }'
-  if [[ $(jq 'has("response")' "${ota_device}".json 2> /dev/null) ]]; then
-    append_ota=1
-    for (( i = 0; i < 3; i++ )); do
-      if [[ $(jq -r .response[${i}].id "${ota_device}".json) == ${id} ]]; then
-        echo "OTA json already contains update with id ${id}"
-        append_ota=0
-        break
-      fi
-    done
-    if [[ ${append_ota} == 1 ]]; then
-      echo "Appending OTA to existing json"
-      jq '.response += ['"${ota_entry}"']' "${ota_device}".json | sponge "${ota_device}".json
-
-      # Trim the list of builds in Updater
-      while [[ $(jq '.response | length' "${ota_device}".json) > 3 ]]; do
-        jq 'del(.response[0])' "${ota_device}".json | sponge "${ota_device}".json
-      done
-    fi
-  else
-    echo "Creating new OTA json"
-    jq -n '{"response": ['"${ota_entry}"']}' > "${ota_device}".json
-  fi
-
-  git add "${ota_device}".json
-  git commit -m "${ota_device}: OTA update $(date +%F)"
-  git push git@github.com:arian-ota/ota.git HEAD:refs/heads/"${project}"
-  cd ${LOCAL_PATH}
 }
 
 # update_changelog device gms
