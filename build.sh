@@ -196,7 +196,7 @@ upload_sourceforge () {
 #   2. Update OTA json
 #   3. Commit, tag and push OTA repo
 #   4. Update changelos
-#   5. Upload artifacts to mirror (sourceforge)
+#   5. Upload artifacts to mirror (sourceforge) -- currently disabled
 #   6. Create github release
 #   7. Post telegram release post
 release () {
@@ -240,6 +240,7 @@ release () {
 
   tag="${version}"-"${device_variant}"-"${id:0:8}"
   url="https://github.com/arian-ota/ota/releases/download/"${tag}"/"${filename}
+  release_url="https://github.com/arian-ota/ota/releases/tag/"${tag}
 
   ota_entry='{
         datetime: '${datetime}',
@@ -285,13 +286,11 @@ release () {
   update_changelog "${device}" "${2}"
   changelog_link=https://raw.githubusercontent.com/arian-ota/changelog/"$project"/"$device_variant".txt
 
-  upload_sourceforge "${device}" "${2}"
+  #upload_sourceforge "${device}" "${2}"
 
   sourceforge_download_link="https://sourceforge.net/projects/ephedraceae/files/"${device}"/"$project"/$(basename $(ls out/target/product/"$1"/lineage-*-"$1".zip))"
   sourceforge_images_download_link="https://sourceforge.net/projects/ephedraceae/files/"${device}"/images/"$project"/"
   time="$(cat ${LOCAL_PATH}/.last_build_time)"
-
-  checksum_link="${url}".sha256sum
 
   if [[ ${device} == "davinci" ]]; then
     group="@lineage\_davinci"
@@ -344,9 +343,8 @@ release () {
 ${build_info}
 
 *Download*
-⬇️ [${project}](${url}) ([mirror](${sourceforge_download_link}))
-☑️ [checksum](${checksum_link})
-💽 [lineage recovery](${sourceforge_images_download_link})
+⬇️ [${project}](${url})
+⛭ [GitHub release / additional files](${release_url})
 
 *SHA-256 checksum*
 \`${id}\`
