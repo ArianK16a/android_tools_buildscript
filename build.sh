@@ -290,7 +290,6 @@ release () {
 
   sourceforge_download_link="https://sourceforge.net/projects/ephedraceae/files/"${device}"/"$project"/$(basename $(ls out/target/product/"$1"/lineage-*-"$1".zip))"
   sourceforge_images_download_link="https://sourceforge.net/projects/ephedraceae/files/"${device}"/images/"$project"/"
-  time="$(cat ${LOCAL_PATH}/.last_build_time)"
 
   if [[ ${device} == "davinci" ]]; then
     group="@lineage\_davinci"
