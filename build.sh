@@ -79,6 +79,10 @@ build () {
     has_ab_partitions="${has_ab_partitions#*=}"
     if [[ ${has_ab_partitions} == "true" ]]; then
       partitions="boot dlkm dtbo vendor_boot"
+      make bootimage
+      make dlkmimage
+      make dtboimage
+      make vendorbootimage
     else
       partitions="recovery"
     fi
