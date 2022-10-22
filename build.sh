@@ -78,11 +78,12 @@ build () {
     has_ab_partitions=$(cat "${OUT}"/vendor/build.prop | grep ro.build.ab_update=)
     has_ab_partitions="${has_ab_partitions#*=}"
     if [[ ${has_ab_partitions} == "true" ]]; then
-      partitions="boot dlkm dtbo vendor_boot"
+      partitions="boot dlkm dtbo vendor_boot recovery"
       make bootimage
       make dlkmimage
       make dtboimage
       make vendorbootimage
+      make recoveryimage
     else
       partitions="recovery"
     fi
