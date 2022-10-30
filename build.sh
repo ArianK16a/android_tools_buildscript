@@ -78,12 +78,11 @@ build () {
     has_ab_partitions=$(cat "${OUT}"/vendor/build.prop | grep ro.build.ab_update=)
     has_ab_partitions="${has_ab_partitions#*=}"
     if [[ ${has_ab_partitions} == "true" ]]; then
-      partitions="boot dlkm dtbo vendor_boot recovery"
+      partitions="boot dtbo vendor_boot recovery"
       make bootimage
-      make dlkmimage
       make dtboimage
-      make vendorbootimage
       make recoveryimage
+      make vendorbootimage
     else
       partitions="recovery"
     fi
@@ -184,7 +183,7 @@ upload_sourceforge () {
 
   img_version=$(cat "${OUT}"/system/build.prop | grep ro.lineage.version=)
   img_version=lineage-"${img_version#*=}"
-  for partition in boot dlkm dtbo recovery vendor_boot; do
+  for partition in boot dtbo recovery vendor_boot; do
     if [[ -f out/target/product/"${device}"/${img_version}-${partition}.img ]]; then
       rsync -Ph out/target/product/"${device}"/${img_version}-${partition}.img ariank16a@frs.sourceforge.net:/home/frs/project/ephedraceae/"${device}"/images/"${project}"/
     fi
