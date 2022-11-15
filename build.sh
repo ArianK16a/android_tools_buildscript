@@ -46,9 +46,14 @@ build () {
   if [[ ${2} == "gms" ]]; then
     git clone https://github.com/ArianK16a/android_vendor_extra.git -b "${project}"_gms vendor/extra
     export TARGET_UNOFFICIAL_BUILD_ID=GMS
+    # Export variables for GMS inclusion
+    # Explicity define gms makefile to throw an error if it does not exist
+    export WITH_GMS=true
+    export GMS_MAKEFILE=gms.mk
   else
     git clone https://github.com/ArianK16a/android_vendor_extra.git -b "${project}"_vanilla vendor/extra
     export TARGET_UNOFFICIAL_BUILD_ID=
+    export WITH_GMS=
   fi
 
   breakfast ${device}
