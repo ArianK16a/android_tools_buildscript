@@ -50,6 +50,7 @@ build () {
     # Explicity define gms makefile to throw an error if it does not exist
     export WITH_GMS=true
     export GMS_MAKEFILE=gms.mk
+    export MAINLINE_MODULES_MAKEFILE=mainline_modules.mk
   else
     git clone https://github.com/ArianK16a/android_vendor_extra.git -b "${project}"_vanilla vendor/extra
     export TARGET_UNOFFICIAL_BUILD_ID=
