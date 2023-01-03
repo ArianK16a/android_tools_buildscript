@@ -334,6 +334,7 @@ release () {
 🗒️ [Changelog](${changelog_link})"
 
   cd ota/
+  gh repo set-default
   gh release create "${tag}" \
       --title "${title}" \
       --notes "${build_info}
