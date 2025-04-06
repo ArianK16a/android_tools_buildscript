@@ -81,9 +81,6 @@ build () {
         cp ${OUT}/${partition}.img ${OUT}/${img_version}-${partition}.img
       fi
     done
-    if [[ ${DEBUG_BUILD} == 0 ]]; then
-      upload_sourceforge ${device} ${2}
-    fi
   else
     if [[ ${DEBUG_BUILD} == 0 ]]; then
       if [[ ${device} == "davinci" ]]; then
@@ -128,48 +125,14 @@ build_result () {
   telegram -M "*(i)* \`$(basename ${LOCAL_PATH})\` compilation for \`${1}\` *${message}* on ${HOSTNAME}. Build variant: \`${type}\`. Build time: \`${time}\`."
 }
 
-# upload_sourceforge device gms
-upload_sourceforge () {
-  device=${1}
-  if [[ ${device} == "" ]]; then
-    echo "specify a device"
-  fi
-
-  project="$(basename ${LOCAL_PATH})"
-
-  # Make sure the directories exist
-  {
-    echo 'mkdir /home/frs/project/ephedraceae/'${device}'/'
-    echo 'mkdir /home/frs/project/ephedraceae/'${device}'/'${project}'/'
-    echo 'mkdir /home/frs/project/ephedraceae/'${device}'/images/'
-    echo 'mkdir /home/frs/project/ephedraceae/'${device}'/images/'${project}'/'
-  } | sftp ariank16a@frs.sourceforge.net
-
-  rsync -Ph out/target/product/"${device}"/lineage-*-"${device}".zip ariank16a@frs.sourceforge.net:/home/frs/project/ephedraceae/"${device}"/"${project}"/
-  rsync -Ph out/target/product/"${device}"/lineage-*-"${device}".zip.sha256sum ariank16a@frs.sourceforge.net:/home/frs/project/ephedraceae/"${device}"/"${project}"/
-
-  img_version=$(cat "${OUT}"/system/build.prop | grep ro.lineage.version=)
-  img_version=lineage-"${img_version#*=}"
-  for partition in boot dtbo recovery vendor_boot; do
-    if [[ -f out/target/product/"${device}"/${img_version}-${partition}.img ]]; then
-      rsync -Ph out/target/product/"${device}"/${img_version}-${partition}.img ariank16a@frs.sourceforge.net:/home/frs/project/ephedraceae/"${device}"/images/"${project}"/
-    fi
-  done
-
-  if [[ ${DEBUG_BUILD} == 0 ]]; then
-    release ${device} ${2}
-  fi
-}
-
 # release device gms
 # release flow:
 #   1. Clone OTA repository
 #   2. Update OTA json
 #   3. Commit, tag and push OTA repo
 #   4. Update changelos
-#   5. Upload artifacts to mirror (sourceforge) -- currently disabled
-#   6. Create github release
-#   7. Post telegram release post
+#   5. Create github release
+#   6. Post telegram release post
 release () {
   device=${1}
   project="$(basename ${LOCAL_PATH})"
@@ -256,11 +219,6 @@ release () {
 
   update_changelog "${device}" "${2}"
   changelog_link=https://raw.githubusercontent.com/arian-ota/changelog/"$project"/"$device_variant".txt
-
-  #upload_sourceforge "${device}" "${2}"
-
-  sourceforge_download_link="https://sourceforge.net/projects/ephedraceae/files/"${device}"/"$project"/$(basename $(ls out/target/product/"$1"/lineage-*-"$1".zip))"
-  sourceforge_images_download_link="https://sourceforge.net/projects/ephedraceae/files/"${device}"/images/"$project"/"
 
   if [[ ${device} == "davinci" ]]; then
     group="@lineage\_davinci"
