@@ -7,10 +7,6 @@
 
 LOCAL_PATH="$(pwd)"
 
-if [ "${DEBUG_BUILD}" != 1 ]; then
-  DEBUG_BUILD=0
-fi
-
 telegram () {
   /home/arian/telegram.sh/telegram "$@"
 }
@@ -31,10 +27,6 @@ build () {
   if [[ -f ${LOCAL_PATH}/.last_build_time ]]; then
     rm ${LOCAL_PATH}/.last_build_time
   fi
-  if [[ ${DEBUG_BUILD} == 0 ]]; then
-    repo sync -j12 --detach --no-clone-bundle --fail-fast --current-branch --force-sync
-    bash "${LOCAL_PATH}"/picks.sh
-  fi
 
   if [[ -d vendor/extra ]];
   then
@@ -54,11 +46,8 @@ build () {
   fi
 
   breakfast ${device}
-  if [[ ${DEBUG_BUILD} == 0 ]]; then
-    make clean
-  else
-    make installclean
-  fi
+  make installclean
+
   telegram -N -M "*(i)* \`"$(basename ${LOCAL_PATH})"\` compilation for \`${device}\` *started* on ${HOSTNAME}."
   build_start=$(date +"%s")
   brunch ${device}
@@ -82,18 +71,6 @@ build () {
       fi
     done
   else
-    if [[ ${DEBUG_BUILD} == 0 ]]; then
-      if [[ ${device} == "davinci" ]]; then
-        extra_arguments="-c -1001426238293"
-      elif [[ ${device} == "toco" ]]; then
-        extra_arguments="-c -1001443889354"
-      elif [[ ${device} == "violet" ]]; then
-        extra_arguments="-c -1001656828188"
-      else
-        extra_arguments=""
-      fi
-      telegram $extra_arguments "Compilation for "$1" failed!"
-    fi
     return -1
   fi
 }
