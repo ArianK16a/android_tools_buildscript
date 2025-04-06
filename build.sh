@@ -7,10 +7,7 @@
 
 LOCAL_PATH="$(pwd)"
 
-if [ "${DEBUG_BUILD}" == 1 ]; then
-  SIGNED=0
-else
-  SIGNED=1
+if [ "${DEBUG_BUILD}" != 1 ]; then
   DEBUG_BUILD=0
 fi
 
@@ -64,19 +61,11 @@ build () {
   fi
   telegram -N -M "*(i)* \`"$(basename ${LOCAL_PATH})"\` compilation for \`${device}\` *started* on ${HOSTNAME}."
   build_start=$(date +"%s")
-  if [[ ${SIGNED} == 1 ]]; then
-    mka target-files-package otatools
-  else
-    brunch ${device}
-  fi
+  brunch ${device}
   build_result ${device} ${2}
 
   # post-build
-  if [[ -f ${LOCAL_PATH}/.last_build_time ]] && ([[ $(ls ${OUT}/obj/PACKAGING/target_files_intermediates/*-target_files-*.zip) ]] || [[ $(ls "${OUT}"/lineage-*-"${device}".zip) ]]); then
-    if [[ ${SIGNED} == 1 ]]; then
-      sign_target_files
-    fi
-
+  if [[ -f ${LOCAL_PATH}/.last_build_time ]] && [[ $(ls "${OUT}"/lineage-*-"${device}".zip) ]]; then
     img_version=$(cat "${OUT}"/system/build.prop | grep ro.lineage.version=)
     img_version=lineage-"${img_version#*=}"
 
@@ -88,14 +77,8 @@ build () {
       partitions="recovery"
     fi
     for partition in ${partitions}; do
-      if [[ ${SIGNED} == 1 ]]; then
-        if [[ $(unzip -l ${OUT}/SIGNED-target_files-"${filename}" | grep -q IMAGES/"${partition}".img && echo $?) == 0 ]]; then
-          unzip -p ${OUT}/SIGNED-target_files-"${filename}" IMAGES/"${partition}".img > ${OUT}/${img_version}-${partition}.img
-        fi
-      else
-        if [[ -f ${OUT}/${partition}.img ]]; then
-          cp ${OUT}/${partition}.img ${OUT}/${img_version}-${partition}.img
-        fi
+      if [[ -f ${OUT}/${partition}.img ]]; then
+        cp ${OUT}/${partition}.img ${OUT}/${img_version}-${partition}.img
       fi
     done
     if [[ ${DEBUG_BUILD} == 0 ]]; then
@@ -143,23 +126,6 @@ build_result () {
     message="failed"
   fi
   telegram -M "*(i)* \`$(basename ${LOCAL_PATH})\` compilation for \`${1}\` *${message}* on ${HOSTNAME}. Build variant: \`${type}\`. Build time: \`${time}\`."
-}
-
-sign_target_files () {
-  filename=$(cat "${OUT}"/system/build.prop | grep ro.lineage.version=)
-  filename=lineage-"${filename#*=}".zip
-
-  ./out/soong/host/linux-x86/bin/sign_target_files_apks -o -d ~/.android-certs \
-    ${OUT}/obj/PACKAGING/target_files_intermediates/*-target_files-*.zip \
-    ${OUT}/SIGNED-target_files-"${filename}"
-
-  ./out/soong/host/linux-x86/bin/ota_from_target_files -k ~/.android-certs/releasekey \
-    --block --backup=true \
-    ${OUT}/SIGNED-target_files-"${filename}" \
-    ${OUT}/"$filename"
-
-  checksum=$(sha256sum "${OUT}"/"${filename}" | awk '{print $1}')
-  echo "$checksum  ${filename}" > ${OUT}/"${filename}".sha256sum
 }
 
 # upload_sourceforge device gms
