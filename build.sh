@@ -54,23 +54,7 @@ build () {
   build_result ${device} ${2}
 
   # post-build
-  if [[ -f ${LOCAL_PATH}/.last_build_time ]] && [[ $(ls "${OUT}"/lineage-*-"${device}".zip) ]]; then
-    img_version=$(cat "${OUT}"/system/build.prop | grep ro.lineage.version=)
-    img_version=lineage-"${img_version#*=}"
-
-    has_ab_partitions=$(cat "${OUT}"/vendor/build.prop | grep ro.build.ab_update=)
-    has_ab_partitions="${has_ab_partitions#*=}"
-    if [[ ${has_ab_partitions} == "true" ]]; then
-      partitions="boot dtbo vendor_boot recovery"
-    else
-      partitions="recovery"
-    fi
-    for partition in ${partitions}; do
-      if [[ -f ${OUT}/${partition}.img ]]; then
-        cp ${OUT}/${partition}.img ${OUT}/${img_version}-${partition}.img
-      fi
-    done
-  else
+  if [[ ! -f ${LOCAL_PATH}/.last_build_time ]] || [[ ! $(ls "${OUT}"/lineage-*-"${device}".zip) ]]; then
     return -1
   fi
 }
@@ -148,6 +132,20 @@ release () {
   size=$(ls -l "${OUT}"/"${filename}" | awk '{print $5}')
   version=$(cat "${OUT}"/system/build.prop | grep ro.lineage.build.version=)
   version="${version#*=}"
+
+  # Add other images which are helpful during installation
+  has_ab_partitions=$(cat "${OUT}"/vendor/build.prop | grep ro.build.ab_update=)
+  has_ab_partitions="${has_ab_partitions#*=}"
+  if [[ ${has_ab_partitions} == "true" ]]; then
+    partitions="boot dtbo vendor_boot recovery"
+  else
+    partitions="recovery"
+  fi
+  for partition in ${partitions}; do
+    if [[ -f ${OUT}/${partition}.img ]]; then
+      cp ${OUT}/${partition}.img ${OUT}/${filename_without_extension}-${partition}.img
+    fi
+  done
 
   tag="${version}"-"${device_variant}"-"${id:0:8}"
   url="https://github.com/arian-ota/ota/releases/download/"${tag}"/"${filename}
