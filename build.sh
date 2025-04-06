@@ -48,7 +48,7 @@ build () {
   breakfast ${device}
   make installclean
 
-  telegram -N -M "*(i)* \`"$(basename ${LOCAL_PATH})"\` compilation for \`${device}\` *started* on ${HOSTNAME}."
+  telegram -N -M "*(i)* \`"${project}"\` compilation for \`${device}\` *started* on ${HOSTNAME}."
   build_start=$(date +"%s")
   brunch ${device}
   build_result ${device} ${2}
