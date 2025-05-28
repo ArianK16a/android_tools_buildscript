@@ -106,14 +106,8 @@ release () {
   then
     rm -rf "${LOCAL_PATH}"/ota
   fi
-  git clone git@github.com:arian-ota/ota.git
+  git clone git@github.com:arian-ota/ota.git -b main
   cd "${LOCAL_PATH}"/ota
-  if [[ $(git fetch origin "${project}" && echo ${?}) == 0 ]]; then
-    git checkout origin/"${project}"
-  else
-    git checkout --orphan "${project}"
-    git rm -rf .
-  fi
 
   datetime=$(cat "${OUT}"/system/build.prop | grep ro.build.date.utc=)
   datetime="${datetime#*=}"
@@ -179,7 +173,7 @@ release () {
 
   git add "${device_variant}".json
   git commit -m "${device_variant}: OTA update $(date +%F)"
-  git push git@github.com:arian-ota/ota.git HEAD:refs/heads/"${project}"
+  git push
 
   git tag "${tag}" HEAD
   git push git@github.com:arian-ota/ota.git "${tag}"
@@ -187,7 +181,7 @@ release () {
   cd ${LOCAL_PATH}
 
   update_changelog "${device}" "${2}"
-  changelog_link=https://raw.githubusercontent.com/arian-ota/changelog/"$project"/"$device_variant".txt
+  changelog_link=https://raw.githubusercontent.com/arian-ota/changelog/main/"$device_variant".txt
 
   if [[ ${device} == "davinci" ]]; then
     group="@lineage\_davinci"
@@ -270,23 +264,10 @@ update_changelog () {
   then
     rm -rf "${LOCAL_PATH}"/changelog
   fi
-  git clone git@github.com:arian-ota/changelog.git
-  cd "${LOCAL_PATH}"/changelog
-  if [[ $(git fetch origin "${project}" && echo ${?}) == 0 ]]; then
-    git checkout origin/"${project}"
-  else
-    git checkout --orphan "${project}"
-    git rm -rf .
-  fi
-  cd ..
+  git clone git@github.com:arian-ota/changelog.git -b main
 
   changelog="${LOCAL_PATH}"/changelog/"${changelog_device}".txt
-
-  if [[ -f ${changelog} ]];
-  then
-      rm ${changelog}
-  fi
-
+  rm -f ${changelog}
   touch ${changelog}
 
   # Generate changelog for 7 days
@@ -310,7 +291,7 @@ update_changelog () {
   cd changelog
   git add "${changelog_device}".txt
   git commit -m "${changelog_device}: Changelog update $(date +%F)"
-  git push git@github.com:arian-ota/changelog.git HEAD:refs/heads/"${project}"
+  git push
   cd ${LOCAL_PATH}
 }
 
