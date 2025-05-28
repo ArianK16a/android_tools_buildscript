@@ -28,20 +28,13 @@ build () {
     rm ${LOCAL_PATH}/.last_build_time
   fi
 
-  if [[ -d vendor/extra ]];
-  then
-    rm -rf vendor/extra
-  fi
   if [[ ${2} == "gms" ]]; then
-    git clone https://github.com/ArianK16a/android_vendor_extra.git -b "${project}"_gms vendor/extra
-    cp ~/.android/adbkey.pub vendor/extra/
     export TARGET_UNOFFICIAL_BUILD_ID=GMS
     # Export variables for GMS inclusion
     # Explicity define gms makefile to throw an error if it does not exist
     export WITH_GMS=true
     export GMS_MAKEFILE=gms.mk
   else
-    git clone https://github.com/ArianK16a/android_vendor_extra.git -b "${project}"_vanilla vendor/extra
     export TARGET_UNOFFICIAL_BUILD_ID=
     export WITH_GMS=
   fi
