@@ -19,10 +19,10 @@ build () {
   cd ${LOCAL_PATH}
   source build/envsetup.sh
 
-  export CCACHE_EXEC=$(command -v ccache)
-  export CCACHE_DIR=$(pwd)/.ccache
-  export USE_CCACHE=1
-  ccache -M 20G
+  #export CCACHE_EXEC=$(command -v ccache)
+  #export CCACHE_DIR=$(pwd)/.ccache
+  #export USE_CCACHE=1
+  #ccache -M 20G
 
   if [[ -f ${LOCAL_PATH}/.last_build_time ]]; then
     rm ${LOCAL_PATH}/.last_build_time
