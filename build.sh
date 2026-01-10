@@ -111,14 +111,14 @@ release () {
 
   datetime=$(cat "${OUT}"/system/build.prop | grep ro.build.date.utc=)
   datetime="${datetime#*=}"
-  filename=$(cat "${OUT}"/system/build.prop | grep ro.lineage.version=)
+  filename=$(cat "${OUT}"/system/build.prop "${OUT}"/product/etc/build.prop | grep ro.lineage.version=)
   filename_without_extension=lineage-"${filename#*=}"
   filename="${filename_without_extension#*=}".zip
   id=$(cat "${OUT}"/"${filename}".sha256sum | awk '{print $1}')
-  romtype=$(cat "${OUT}"/system/build.prop | grep ro.lineage.releasetype=)
+  romtype=$(cat "${OUT}"/system/build.prop "${OUT}"/product/etc/build.prop | grep ro.lineage.releasetype=)
   romtype="${romtype#*=}"
   size=$(ls -l "${OUT}"/"${filename}" | awk '{print $5}')
-  version=$(cat "${OUT}"/system/build.prop | grep ro.lineage.build.version=)
+  version=$(cat "${OUT}"/system/build.prop "${OUT}"/product/etc/build.prop | grep ro.lineage.build.version=)
   version="${version#*=}"
 
   # Add other images which are helpful during installation
