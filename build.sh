@@ -122,13 +122,7 @@ release () {
   version="${version#*=}"
 
   # Add other images which are helpful during installation
-  has_ab_partitions=$(cat "${OUT}"/vendor/build.prop | grep ro.build.ab_update=)
-  has_ab_partitions="${has_ab_partitions#*=}"
-  if [[ ${has_ab_partitions} == "true" ]]; then
-    partitions="boot init_boot vendor_boot vbmeta dtbo recovery"
-  else
-    partitions="recovery"
-  fi
+  partitions="boot init_boot vendor_boot vbmeta dtbo recovery"
   for partition in ${partitions}; do
     if [[ -f ${OUT}/${partition}.img ]]; then
       cp ${OUT}/${partition}.img ${OUT}/${filename_without_extension}-${partition}.img
