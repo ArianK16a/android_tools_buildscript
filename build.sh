@@ -125,7 +125,7 @@ release () {
   has_ab_partitions=$(cat "${OUT}"/vendor/build.prop | grep ro.build.ab_update=)
   has_ab_partitions="${has_ab_partitions#*=}"
   if [[ ${has_ab_partitions} == "true" ]]; then
-    partitions="boot dtbo vendor_boot recovery"
+    partitions="boot init_boot vendor_boot vbmeta dtbo recovery"
   else
     partitions="recovery"
   fi
